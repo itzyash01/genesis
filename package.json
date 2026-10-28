@@ -1,0 +1,16 @@
+{
+  "name": "genesis-highlevel-app-builder",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Secure AI app builder for HighLevel marketplace integrations",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build && npm --prefix functions run build",
+    "lint": "npm --prefix frontend run lint && npm --prefix functions run lint",
+    "emulators": "firebase emulators:start",
+    "deploy": "firebase deploy --only hosting,functions,firestore:rules,firestore:indexes"
+  }
+}
