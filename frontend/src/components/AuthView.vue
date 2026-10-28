@@ -72,7 +72,7 @@ async function resetPassword() {
             src="/genesis-mark.svg"
             alt=""
             class="h-9 w-9 rounded-xl"
-          />
+          >
           <span>genesis</span>
         </a>
         <div class="relative max-w-lg py-10">

@@ -2,6 +2,8 @@
 
 Genesis is a Vue 3 and TypeScript workspace for generating small, sandboxed apps that use live HighLevel CRM data. Firebase Authentication, Firestore, Cloud Functions, and Firebase Hosting provide the application backend and deployment target.
 
+Generation calls Groq's OpenAI-compatible API from Cloud Functions using the OpenAI JavaScript SDK. The default model is `openai/gpt-oss-120b`; no OpenAI API key is used.
+
 ## Repository layout
 
     .
@@ -29,7 +31,7 @@ Genesis is a Vue 3 and TypeScript workspace for generating small, sandboxed apps
 - A Firebase project with Authentication (email/password), Firestore, Cloud Functions, and Hosting enabled
 - Firebase Blaze billing for deployed Cloud Functions and Secret Manager
 - A HighLevel Marketplace app and a sandbox location
-- An OpenAI API key
+- A Groq API key
 
 ## Local setup
 
@@ -47,7 +49,7 @@ Genesis is a Vue 3 and TypeScript workspace for generating small, sandboxed apps
 
        openssl rand -base64 32
 
-   Save the generated value as TOKEN_ENCRYPTION_KEY in functions/.secret.local. Put OPENAI_API_KEY and HL_CLIENT_SECRET in the same file.
+   Save the generated value as TOKEN_ENCRYPTION_KEY in functions/.secret.local. Put GROQ_API_KEY and HL_CLIENT_SECRET in the same file. The Groq key is used only by the server-side generation function.
 
    Set APP_CHECK_REQUIRED=false in functions/.env for local emulator use unless App Check is configured for the local app.
 
@@ -71,11 +73,13 @@ Register the callback URI exactly as configured in HL_REDIRECT_URI:
 
     https://<project-id>.web.app/api/oauth/callback
 
-Request only these scopes:
+Request these scopes for the assignment's contact and message workflows:
 
 - contacts.readonly
+- contacts.write
 - conversations.readonly
 - conversations/message.readonly
+- conversations/message.write
 - calendars.readonly
 - calendars/events.readonly
 - locations.readonly
@@ -88,7 +92,7 @@ Each user connects one HighLevel location. Projects are associated with that loc
 
 frontend/.env.local contains the public Firebase web app values and optional App Check site key. functions/.env contains non-secret runtime parameters. Server credentials belong in Firebase Secret Manager:
 
-    firebase functions:secrets:set OPENAI_API_KEY
+    firebase functions:secrets:set GROQ_API_KEY
     firebase functions:secrets:set HL_CLIENT_SECRET
     firebase functions:secrets:set TOKEN_ENCRYPTION_KEY
 
@@ -99,7 +103,7 @@ Set these non-secret function parameters in functions/.env.<project-id> before d
 - HL_SCOPES
 - APP_ORIGIN
 - ALLOWED_ORIGINS
-- OPENAI_MODEL
+- GROQ_MODEL
 - APP_CHECK_REQUIRED
 
 Enable Firebase App Check for the web app, set VITE_FIREBASE_APP_CHECK_SITE_KEY, and keep APP_CHECK_REQUIRED=true for production deployment. Functions enforce App Check when this flag is enabled. Keep the allowed origin list limited to the production site and known development origins.

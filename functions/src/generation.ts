@@ -7,7 +7,7 @@ import {
 } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import { db } from "./admin.js";
-import { openAiModel } from "./config.js";
+import { groqModel } from "./config.js";
 import { pruneOldSnapshots } from "./snapshot-retention.js";
 import {
   fileDocumentId,
@@ -232,7 +232,7 @@ export async function generateProjectFiles(options: {
   const projectId = projectIdSchema.parse(options.projectId);
   const prompt = promptSchema.parse(options.prompt);
   if (!options.apiKey) {
-    throw new HttpsError("failed-precondition", "OPENAI_API_KEY is not configured.");
+    throw new HttpsError("failed-precondition", "GROQ_API_KEY is not configured.");
   }
   const generationId = randomUUID();
   const lock = await acquireGenerationLock(options.uid, projectId, generationId);
@@ -276,13 +276,14 @@ export async function generateProjectFiles(options: {
     current = await readProjectFiles(lock.projectRef);
     const client = new OpenAI({
       apiKey: options.apiKey,
+      baseURL: "https://api.groq.com/openai/v1",
       timeout: 180_000,
       maxRetries: 1,
     });
     const projectContext = buildContext(current);
     const completion = await client.chat.completions.create(
       {
-        model: openAiModel.value(),
+        model: groqModel.value(),
         stream: true,
         temperature: 0.2,
         max_completion_tokens: 16_000,

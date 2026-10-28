@@ -54,7 +54,7 @@ function submitProject() {
             src="/genesis-mark.svg"
             alt=""
             class="h-9 w-9 shrink-0 rounded-xl"
-          />
+          >
           genesis <span class="ml-1 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">studio</span>
         </a>
         <div class="flex items-center gap-3">

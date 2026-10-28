@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { ArrowLeft, Blocks, Cloud, History, LoaderCircle, MoreHorizontal, ShieldCheck } from "@lucide/vue";
+import { ArrowLeft, Cloud, History, LoaderCircle, MoreHorizontal, ShieldCheck } from "@lucide/vue";
 import type { ChatMessage, GenerationEvent, Project, ProjectFile, Snapshot } from "../lib/api";
 import { api, streamGeneration } from "../lib/api";
 import ChatPanel from "./ChatPanel.vue";
@@ -298,7 +298,7 @@ function onEditorKey(event: KeyboardEvent) {
           src="/genesis-mark.svg"
           alt=""
           class="h-8 w-8 shrink-0 rounded-lg"
-        />
+        >
         <div class="min-w-0">
           <h1 class="truncate text-xs font-semibold text-ink">
             {{ project.name }}

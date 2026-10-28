@@ -11,7 +11,7 @@ import {
   hlClientSecret,
   hlRedirectUri,
   hlScopes,
-  openAiApiKey,
+  groqApiKey,
   tokenEncryptionKey,
 } from "./config.js";
 import { auth, db } from "./admin.js";
@@ -575,7 +575,7 @@ export const api = onRequest(
     memory: "1GiB",
     maxInstances: 20,
     concurrency: 10,
-    secrets: [hlClientSecret, tokenEncryptionKey, openAiApiKey],
+    secrets: [hlClientSecret, tokenEncryptionKey, groqApiKey],
   },
   async (request, response) => {
     addCorsHeaders(request, response);
@@ -669,7 +669,7 @@ export const api = onRequest(
         uid,
         projectId: input.projectId,
         prompt: input.prompt,
-        apiKey: openAiApiKey.value(),
+        apiKey: groqApiKey.value(),
         signal: controller.signal,
         send,
       });
