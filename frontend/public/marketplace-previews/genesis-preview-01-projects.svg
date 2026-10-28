@@ -27,7 +27,7 @@
   <rect x="72" y="231" width="1136" height="91" rx="16" fill="#ffffff" stroke="#e5e9e5" filter="url(#shadow)"/>
   <rect x="91" y="253" width="48" height="48" rx="14" fill="#e5f1ec"/>
   <path d="M108 277a8 8 0 0 1 8-8h6m-1-5 5 5-5 5m-2 3a8 8 0 0 1-8 8h-5m1 5-5-5 5-5" fill="none" stroke="#176a56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="158" y="268" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700">HighLevel connection</text>
+  <text x="158" y="268" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700">Workspace connection</text>
   <rect x="302" y="251" width="86" height="23" rx="11.5" fill="#e9f7ef"/>
   <circle cx="316" cy="262.5" r="3.5" fill="#27a36a"/>
   <text x="326" y="267" fill="#218354" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700">Connected</text>
