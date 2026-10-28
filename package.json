@@ -10,7 +10,10 @@
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build && npm --prefix functions run build",
     "lint": "npm --prefix frontend run lint && npm --prefix functions run lint",
-    "emulators": "firebase emulators:start",
+    "emulators": "firebase emulators:start --only auth,functions,firestore",
     "deploy": "firebase deploy --only hosting,functions,firestore:rules,firestore:indexes"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.34.1"
   }
 }

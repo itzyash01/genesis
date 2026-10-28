@@ -27,6 +27,7 @@ Generation calls Groq's OpenAI-compatible API from Cloud Functions using the Ope
 ## Requirements
 
 - Node.js 22.12 or newer in the Node 22 release line, and npm
+- Java 21 or newer for the Firebase emulators
 - Firebase CLI
 - A Firebase project with Authentication (email/password), Firestore, Cloud Functions, and Hosting enabled
 - Firebase Blaze billing for deployed Cloud Functions and Secret Manager
@@ -35,11 +36,10 @@ Generation calls Groq's OpenAI-compatible API from Cloud Functions using the Ope
 
 ## Local setup
 
-1. Select your Firebase project and copy the Firebase web app values into frontend/.env.local. The project alias is kept in your local Firebase CLI configuration and is not committed to this repository.
+1. Copy the Firebase web app values into frontend/.env.local. This repository defaults to `genesis-699ec` through `.firebaserc`; use `firebase use --add` if you are targeting a different Firebase project.
 
        cp frontend/.env.example frontend/.env.local
        cp functions/.env.example functions/.env
-       firebase use --add
 
 2. Set the server-only values in functions/.env. Use the emulator callback URI when using a local HTTPS tunnel or a callback URL supported by your HighLevel app. The deployed redirect URI should be:
 
@@ -55,17 +55,18 @@ Generation calls Groq's OpenAI-compatible API from Cloud Functions using the Ope
 
 4. Install dependencies:
 
+       npm install
        npm --prefix frontend install
        npm --prefix functions install
 
    For local development, set VITE_FIREBASE_EMULATORS=true and VITE_GENERATION_URL=http://127.0.0.1:5001/<project-id>/us-central1/api in frontend/.env.local. Set APP_ORIGIN and ALLOWED_ORIGINS in functions/.env. Start the emulators in one terminal and the Vite server in another:
 
-       firebase emulators:start
-       npm --prefix frontend run dev
+       npm run emulators
+       npm run dev
 
-   The Firebase Hosting emulator serves the built SPA and proxies /api routes. The Vite development server serves the frontend directly and uses the direct Functions emulator URL for SSE.
+   The Vite development server serves the frontend directly and uses the direct Functions emulator URL for SSE. Start the Hosting emulator separately when you need to test the built SPA and Hosting rewrites.
 
-5. For local HighLevel OAuth, register the callback URL served by the Hosting emulator or expose the local emulator through an HTTPS tunnel. HighLevel must redirect to the exact configured URI. Use a sandbox location.
+5. For local HighLevel OAuth, expose the Functions emulator callback through a public HTTPS tunnel, set `HL_REDIRECT_URI` to that exact HTTPS callback URL, and register the same URL in the Marketplace app. HighLevel requires an HTTPS redirect URL. Use a sandbox location.
 
 ## HighLevel Marketplace setup
 
