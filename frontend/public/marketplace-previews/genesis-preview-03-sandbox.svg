@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Responsive app preview in a secure sandbox</title>
+  <desc id="desc">A mobile contact dashboard shown inside Genesis preview with read-only CRM data and sandbox status.</desc>
+  <rect width="1280" height="720" fill="#f7f8f5"/>
+  <rect width="1280" height="72" fill="#ffffff"/>
+  <path d="M0 71.5H1280" stroke="#e5e9e5"/>
+  <rect x="48" y="17" width="38" height="38" rx="12" fill="#176a56"/>
+  <text x="67" y="44" text-anchor="middle" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="23" font-weight="700">G</text>
+  <text x="99" y="43" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="-.5">genesis</text>
+  <path d="M205 25v22" stroke="#e2e8e4"/>
+  <text x="226" y="41" fill="#637069" font-family="Inter,Arial,sans-serif" font-size="12">Contact insights</text>
+  <rect x="1003" y="22" width="164" height="28" rx="14" fill="#e9f7ef"/>
+  <circle cx="1021" cy="36" r="4" fill="#2ba36a"/>
+  <text x="1033" y="40" fill="#238254" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="600">Preview is sandboxed</text>
+  <circle cx="1200" cy="36" r="18" fill="#e5f1ec"/>
+  <path d="M1194 36h12m-6-6v12" stroke="#176a56" stroke-width="1.5" stroke-linecap="round"/>
+
+  <text x="72" y="126" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="1.7">SAFE, CONNECTED PREVIEWS</text>
+  <text x="72" y="169" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="31" font-weight="700" letter-spacing="-1.1">See your app before it ships.</text>
+  <text x="72" y="197" fill="#697570" font-family="Inter,Arial,sans-serif" font-size="13">Preview generated interfaces with approved CRM reads—inside an isolated sandbox.</text>
+
+  <rect x="72" y="229" width="360" height="391" rx="18" fill="#ffffff" stroke="#e5e9e5"/>
+  <text x="98" y="268" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="700">Connected data</text>
+  <text x="98" y="289" fill="#89948e" font-family="Inter,Arial,sans-serif" font-size="10">Choose a location, then build with live records.</text>
+  <rect x="98" y="313" width="308" height="62" rx="12" fill="#fbfcfb" stroke="#e8ece9"/>
+  <circle cx="123" cy="344" r="13" fill="#e5f1ec"/>
+  <circle cx="120" cy="341" r="4" fill="none" stroke="#176a56" stroke-width="1.4"/>
+  <path d="M113 352c1-4 4-6 7-6s6 2 7 6" fill="none" stroke="#176a56" stroke-width="1.4" stroke-linecap="round"/>
+  <text x="148" y="341" fill="#34423b" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600">Contacts</text>
+  <text x="148" y="357" fill="#909b95" font-family="Inter,Arial,sans-serif" font-size="9">Search and display contact records</text>
+  <rect x="337" y="334" width="54" height="20" rx="10" fill="#e9f7ef"/>
+  <text x="364" y="348" text-anchor="middle" fill="#238254" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">READ</text>
+  <rect x="98" y="388" width="308" height="62" rx="12" fill="#fbfcfb" stroke="#e8ece9"/>
+  <circle cx="123" cy="419" r="13" fill="#e5f1ec"/>
+  <path d="M116 414h14v10h-14zM118 411h10M119 417h8" fill="none" stroke="#176a56" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="148" y="416" fill="#34423b" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600">Conversations</text>
+  <text x="148" y="432" fill="#909b95" font-family="Inter,Arial,sans-serif" font-size="9">Review recent customer threads</text>
+  <rect x="337" y="409" width="54" height="20" rx="10" fill="#e9f7ef"/>
+  <text x="364" y="423" text-anchor="middle" fill="#238254" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">READ</text>
+  <rect x="98" y="463" width="308" height="62" rx="12" fill="#fbfcfb" stroke="#e8ece9"/>
+  <circle cx="123" cy="494" r="13" fill="#e5f1ec"/>
+  <rect x="117" y="487" width="12" height="13" rx="2" fill="none" stroke="#176a56" stroke-width="1.3"/>
+  <path d="M117 491h12m-8-7v5m4-5v5" stroke="#176a56" stroke-width="1.3" stroke-linecap="round"/>
+  <text x="148" y="491" fill="#34423b" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600">Calendars &amp; appointments</text>
+  <text x="148" y="507" fill="#909b95" font-family="Inter,Arial,sans-serif" font-size="9">Show schedules and upcoming events</text>
+  <rect x="337" y="484" width="54" height="20" rx="10" fill="#e9f7ef"/>
+  <text x="364" y="498" text-anchor="middle" fill="#238254" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">READ</text>
+  <rect x="98" y="546" width="308" height="49" rx="11" fill="#f2f7f4"/>
+  <path d="M117 570l4 4 8-9" fill="none" stroke="#268157" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="141" y="567" fill="#3f574b" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="600">Your CRM tokens stay server-side.</text>
+  <text x="141" y="582" fill="#7e8d84" font-family="Inter,Arial,sans-serif" font-size="8">Generated previews cannot change CRM records.</text>
+
+  <rect x="464" y="229" width="744" height="391" rx="18" fill="#ffffff" stroke="#e5e9e5"/>
+  <path d="M464 278H1208" stroke="#e8ece9"/>
+  <text x="490" y="259" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700">Live preview</text>
+  <rect x="1005" y="240" width="78" height="27" rx="7" fill="#ffffff" stroke="#e1e7e2"/>
+  <path d="M1020 248h7v11h-7z" fill="none" stroke="#7f8a84" stroke-width="1.1"/>
+  <text x="1033" y="257" fill="#7b8780" font-family="Inter,Arial,sans-serif" font-size="8">Desktop</text>
+  <rect x="1088" y="240" width="92" height="27" rx="7" fill="#e5f1ec"/>
+  <rect x="1100" y="247" width="7" height="12" rx="1.5" fill="none" stroke="#176a56" stroke-width="1.1"/>
+  <text x="1113" y="257" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">Mobile</text>
+  <circle cx="1190" cy="253" r="7" fill="none" stroke="#7f8a84" stroke-width="1.2"/>
+  <path d="M1190 249v4l3 2" fill="none" stroke="#7f8a84" stroke-width="1" stroke-linecap="round"/>
+  <rect x="482" y="293" width="708" height="306" rx="12" fill="#f4f6f3"/>
+
+  <rect x="670" y="300" width="332" height="292" rx="28" fill="#1c2528"/>
+  <rect x="680" y="310" width="312" height="272" rx="21" fill="#ffffff"/>
+  <rect x="786" y="317" width="100" height="14" rx="7" fill="#1c2528"/>
+  <rect x="694" y="341" width="284" height="227" rx="13" fill="#fbfcfb"/>
+  <text x="711" y="368" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700">Recent contacts</text>
+  <text x="711" y="385" fill="#87928c" font-family="Inter,Arial,sans-serif" font-size="8">Sample data · connected location</text>
+  <rect x="711" y="397" width="250" height="27" rx="7" fill="#ffffff" stroke="#e4e9e5"/>
+  <circle cx="724" cy="410" r="4" fill="none" stroke="#9aa59f" stroke-width="1"/>
+  <text x="735" y="413" fill="#a1aaa5" font-family="Inter,Arial,sans-serif" font-size="8">Search contacts</text>
+  <rect x="711" y="435" width="250" height="51" rx="9" fill="#ffffff" stroke="#e8ece9"/>
+  <circle cx="733" cy="460" r="12" fill="#e5f1ec"/>
+  <text x="733" y="463" text-anchor="middle" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">EJ</text>
+  <text x="753" y="456" fill="#35423c" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="600">Emma Johnson</text>
+  <text x="753" y="471" fill="#919b95" font-family="Inter,Arial,sans-serif" font-size="8">New lead · Website</text>
+  <rect x="895" y="450" width="49" height="19" rx="9.5" fill="#e9f7ef"/>
+  <text x="919.5" y="463" text-anchor="middle" fill="#238254" font-family="Inter,Arial,sans-serif" font-size="7" font-weight="700">NEW</text>
+  <rect x="711" y="494" width="250" height="51" rx="9" fill="#ffffff" stroke="#e8ece9"/>
+  <circle cx="733" cy="519" r="12" fill="#e8eff8"/>
+  <text x="733" y="522" text-anchor="middle" fill="#536f93" font-family="Inter,Arial,sans-serif" font-size="8" font-weight="700">NW</text>
+  <text x="753" y="515" fill="#35423c" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="600">Noah Williams</text>
+  <text x="753" y="530" fill="#919b95" font-family="Inter,Arial,sans-serif" font-size="8">Active · Referral</text>
+  <rect x="895" y="509" width="49" height="19" rx="9.5" fill="#eef2fa"/>
+  <text x="919.5" y="522" text-anchor="middle" fill="#5e7297" font-family="Inter,Arial,sans-serif" font-size="7" font-weight="700">ACTIVE</text>
+  <rect x="711" y="553" width="250" height="1" fill="#edf0ed"/>
+  <text x="711" y="569" fill="#89948e" font-family="Inter,Arial,sans-serif" font-size="7">Example generated interface · demo records</text>
+  <text x="72" y="674" fill="#a2aaa6" font-family="Inter,Arial,sans-serif" font-size="10">GENESIS STUDIO  ·  A SANDBOXED SPACE TO SHAPE CRM TOOLS</text>
+</svg>

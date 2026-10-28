@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Genesis app workspace</title>
+  <desc id="desc">A sample project dashboard showing a connected CRM location and three app projects.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#21332d" flood-opacity=".07"/></filter>
+  </defs>
+  <rect width="1280" height="720" fill="#f7f8f5"/>
+  <rect width="1280" height="72" fill="#ffffff"/>
+  <path d="M0 71.5H1280" stroke="#e5e9e5"/>
+  <rect x="48" y="17" width="38" height="38" rx="12" fill="#176a56"/>
+  <text x="67" y="44" text-anchor="middle" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="23" font-weight="700">G</text>
+  <text x="99" y="43" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="21" font-weight="700" letter-spacing="-.6">genesis</text>
+  <rect x="171" y="27" width="54" height="20" rx="6" fill="#e5f1ec"/>
+  <text x="198" y="41" text-anchor="middle" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="700" letter-spacing="1">STUDIO</text>
+  <text x="1005" y="42" fill="#66716d" font-family="Inter,Arial,sans-serif" font-size="13">Workspace</text>
+  <circle cx="1194" cy="36" r="18" fill="#e5f1ec"/>
+  <text x="1194" y="41" text-anchor="middle" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700">Y</text>
+  <text x="1220" y="41" fill="#52605a" font-family="Inter,Arial,sans-serif" font-size="12">Your account</text>
+
+  <text x="72" y="125" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="700" letter-spacing="1.8">YOUR WORKSPACE</text>
+  <text x="72" y="170" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="35" font-weight="700" letter-spacing="-1.4">Apps that work for you.</text>
+  <text x="72" y="198" fill="#697570" font-family="Inter,Arial,sans-serif" font-size="14">Start with a prompt, connect your CRM data, and shape the result in your own code workspace.</text>
+  <rect x="1045" y="143" width="163" height="46" rx="11" fill="#176a56"/>
+  <text x="1071" y="171" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="400">+</text>
+  <text x="1092" y="171" fill="#ffffff" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600">New project</text>
+
+  <rect x="72" y="231" width="1136" height="91" rx="16" fill="#ffffff" stroke="#e5e9e5" filter="url(#shadow)"/>
+  <rect x="91" y="253" width="48" height="48" rx="14" fill="#e5f1ec"/>
+  <path d="M108 277a8 8 0 0 1 8-8h6m-1-5 5 5-5 5m-2 3a8 8 0 0 1-8 8h-5m1 5-5-5 5-5" fill="none" stroke="#176a56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="158" y="268" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700">HighLevel connection</text>
+  <rect x="302" y="251" width="86" height="23" rx="11.5" fill="#e9f7ef"/>
+  <circle cx="316" cy="262.5" r="3.5" fill="#27a36a"/>
+  <text x="326" y="267" fill="#218354" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700">Connected</text>
+  <text x="158" y="291" fill="#718078" font-family="Inter,Arial,sans-serif" font-size="12">Brightside Agency · Demo location</text>
+  <rect x="1080" y="255" width="104" height="39" rx="9" fill="#ffffff" stroke="#dce4df"/>
+  <text x="1132" y="279" text-anchor="middle" fill="#43514b" font-family="Inter,Arial,sans-serif" font-size="11" font-weight="600">Manage</text>
+
+  <text x="72" y="372" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="19" font-weight="700">Your projects</text>
+  <text x="72" y="394" fill="#89938e" font-family="Inter,Arial,sans-serif" font-size="11">3 sample projects</text>
+  <rect x="925" y="352" width="283" height="39" rx="10" fill="#ffffff" stroke="#e0e6e2"/>
+  <circle cx="946" cy="371" r="5" fill="none" stroke="#98a49e" stroke-width="1.5"/>
+  <path d="m950 375 4 4" stroke="#98a49e" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="964" y="375" fill="#9aa39f" font-family="Inter,Arial,sans-serif" font-size="11">Search projects</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="414" width="360" height="218" rx="16" fill="#ffffff" stroke="#e5e9e5"/>
+    <rect x="460" y="414" width="360" height="218" rx="16" fill="#ffffff" stroke="#e5e9e5"/>
+    <rect x="848" y="414" width="360" height="218" rx="16" fill="#ffffff" stroke="#e5e9e5"/>
+  </g>
+  <rect x="92" y="436" width="42" height="42" rx="12" fill="#e5f1ec"/>
+  <path d="M104 449h18v15h-18zM108 445h10M108 469h10" fill="none" stroke="#176a56" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="408" cy="447" r="1.7" fill="#9aa49f"/><circle cx="408" cy="454" r="1.7" fill="#9aa49f"/><circle cx="408" cy="461" r="1.7" fill="#9aa49f"/>
+  <text x="92" y="511" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700">Contact insights</text>
+  <text x="92" y="536" fill="#76817b" font-family="Inter,Arial,sans-serif" font-size="11">Search, filter, and explore recent leads.</text>
+  <path d="M92 578H412" stroke="#edf0ed"/>
+  <text x="92" y="602" fill="#9aa39f" font-family="Inter,Arial,sans-serif" font-size="10">Updated today</text>
+  <text x="388" y="602" text-anchor="end" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700">v3  ›</text>
+
+  <rect x="480" y="436" width="42" height="42" rx="12" fill="#e5f1ec"/>
+  <rect x="491" y="446" width="20" height="20" rx="3" fill="none" stroke="#176a56" stroke-width="1.7"/>
+  <path d="M491 452h20M497 442v8M505 442v8" stroke="#176a56" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="796" cy="447" r="1.7" fill="#9aa49f"/><circle cx="796" cy="454" r="1.7" fill="#9aa49f"/><circle cx="796" cy="461" r="1.7" fill="#9aa49f"/>
+  <text x="480" y="511" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700">Appointment overview</text>
+  <text x="480" y="536" fill="#76817b" font-family="Inter,Arial,sans-serif" font-size="11">A clear view of upcoming appointments.</text>
+  <path d="M480 578H800" stroke="#edf0ed"/>
+  <text x="480" y="602" fill="#9aa39f" font-family="Inter,Arial,sans-serif" font-size="10">Updated yesterday</text>
+  <text x="776" y="602" text-anchor="end" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700">v2  ›</text>
+
+  <rect x="868" y="436" width="42" height="42" rx="12" fill="#e5f1ec"/>
+  <path d="M880 448h18v17h-18zM884 444h10M884 453h10M884 458h6" fill="none" stroke="#176a56" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="1184" cy="447" r="1.7" fill="#9aa49f"/><circle cx="1184" cy="454" r="1.7" fill="#9aa49f"/><circle cx="1184" cy="461" r="1.7" fill="#9aa49f"/>
+  <text x="868" y="511" fill="#1c2528" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="700">Conversation pulse</text>
+  <text x="868" y="536" fill="#76817b" font-family="Inter,Arial,sans-serif" font-size="11">Keep recent customer conversations in view.</text>
+  <path d="M868 578H1188" stroke="#edf0ed"/>
+  <text x="868" y="602" fill="#9aa39f" font-family="Inter,Arial,sans-serif" font-size="10">Updated Oct 27</text>
+  <text x="1164" y="602" text-anchor="end" fill="#176a56" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="700">v1  ›</text>
+  <text x="72" y="680" fill="#a2aaa6" font-family="Inter,Arial,sans-serif" font-size="10">GENESIS STUDIO  ·  BUILD A TOOL THAT FITS YOUR WORKFLOW</text>
+</svg>
