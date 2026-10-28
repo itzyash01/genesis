@@ -106,7 +106,7 @@ export const createProject = onCall(callableOptions, async (request) => {
   );
   const connection = await getHighLevelConnection(uid);
   if (!connection.connected) {
-    throw new HttpsError("failed-precondition", "Connect a HighLevel location before creating a project.");
+    throw new HttpsError("failed-precondition", "Connect a CRM account before creating a project.");
   }
   const projects = db.collection("users/" + uid + "/projects");
   const active = await projects.where("deletedAt", "==", null).limit(PROJECT_LIMIT).get();
@@ -472,7 +472,7 @@ export const highLevelData = onCall(
         const expired = !data || now - (data.windowStartMs ?? 0) >= 60_000;
         const count = expired ? 0 : data.count ?? 0;
         if (count >= 60) {
-          throw new HttpsError("resource-exhausted", "HighLevel preview request limit reached.");
+          throw new HttpsError("resource-exhausted", "CRM preview request limit reached.");
         }
         transaction.set(rateRef, {
           windowStartMs: expired ? now : data?.windowStartMs,

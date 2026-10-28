@@ -83,7 +83,7 @@ function submitProject() {
             Apps that work for you.
           </h1>
           <p class="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-            Start with a prompt, connect HighLevel data, and shape the result in your own code workspace.
+            Start with a prompt, connect your CRM data, and shape the result in your own code workspace.
           </p>
         </div>
         <div class="flex gap-2">
@@ -154,7 +154,7 @@ function submitProject() {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="text-sm font-semibold text-ink">
-                HighLevel connection
+                CRM connection
               </h2>
               <Badge :tone="connection.connected ? 'green' : 'amber'">
                 <span
@@ -165,7 +165,7 @@ function submitProject() {
               </Badge>
             </div>
             <p class="mt-1 text-xs text-slate-500">
-              {{ connection.connected ? connection.locationName + " · " + connection.locationId : "Connect one HighLevel location to build apps with your CRM data." }}
+              {{ connection.connected ? connection.locationName : "Connect a CRM account to build apps with your business data." }}
             </p>
           </div>
         </div>
@@ -175,7 +175,7 @@ function submitProject() {
             size="sm"
             @click="emit('connect')"
           >
-            <Link2 :size="14" /> Connect HighLevel
+            <Link2 :size="14" /> Connect CRM
           </Button>
           <Button
             v-else
@@ -268,7 +268,7 @@ function submitProject() {
           {{ search ? "No matching projects" : "Your first app starts here" }}
         </h3>
         <p class="mx-auto mt-1 max-w-sm text-xs leading-5 text-slate-500">
-          {{ search ? "Try another search term." : "Connect HighLevel, create a project, then describe the app you want to build." }}
+          {{ search ? "Try another search term." : "Connect your CRM, create a project, then describe the app you want to build." }}
         </p>
         <Button
           v-if="!connection.connected"
@@ -277,7 +277,7 @@ function submitProject() {
           class="mt-4"
           @click="emit('connect')"
         >
-          <Link2 :size="14" /> Connect HighLevel
+          <Link2 :size="14" /> Connect CRM
         </Button>
         <Button
           v-else-if="!search"

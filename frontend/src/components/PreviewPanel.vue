@@ -72,7 +72,7 @@ const srcdoc = computed(() => {
     "pending.set(id,{resolve:function(value){clearTimeout(timer);resolve(value);},reject:function(error){clearTimeout(timer);reject(error);}});",
     "parent.postMessage({source:'genesis-preview',id:id,action:action,params:params||{}},'*');",
     "});}",
-    "window.genesis={highlevel:{",
+    "window.genesis={crm:{",
     "contacts:function(options){return call('contacts',options);},",
     "conversations:function(options){return call('conversations',options);},",
     "messages:function(conversationId){return call('messages',{conversationId:conversationId});},",

@@ -48,7 +48,7 @@ function requireOAuthConfig(clientId: string, redirectUri: string) {
   if (!clientId || !redirectUri) {
     throw new HttpsError(
       "failed-precondition",
-      "HighLevel OAuth is not configured. Add HL_CLIENT_ID and HL_REDIRECT_URI.",
+      "The CRM integration is not configured. Contact your administrator.",
     );
   }
 }
@@ -64,7 +64,7 @@ function tokenPair(response: OAuthToken) {
   ) {
     throw new HttpsError(
       "internal",
-      "HighLevel returned an incomplete authorization response.",
+      "The authorization response was incomplete.",
     );
   }
   return { accessToken, refreshToken, expiresIn };
@@ -96,7 +96,7 @@ async function exchangeCode(options: {
   if (!response.ok) {
     throw new HttpsError(
       "failed-precondition",
-      "HighLevel authorization could not be completed. Check the app credentials and redirect URI.",
+      "CRM authorization could not be completed. Check the connection settings and try again.",
     );
   }
   return (await response.json()) as OAuthToken;
@@ -163,7 +163,7 @@ export async function finishHighLevelOAuth(options: {
   if (!locationId) {
     throw new HttpsError(
       "failed-precondition",
-      "Choose one HighLevel location when installing the app.",
+      "Choose one business account when installing the app.",
     );
   }
 
@@ -228,7 +228,7 @@ async function refreshAccessToken(options: {
   if (!response.ok) {
     throw new HttpsError(
       "failed-precondition",
-      "HighLevel authorization expired. Reconnect your location.",
+      "CRM authorization expired. Reconnect your account.",
     );
   }
   return (await response.json()) as OAuthToken;
@@ -247,7 +247,7 @@ export async function getHighLevelAccessToken(options: {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const snapshot = await ref.get();
     if (!snapshot.exists) {
-      throw new HttpsError("failed-precondition", "Connect a HighLevel location first.");
+      throw new HttpsError("failed-precondition", "Connect a CRM account first.");
     }
     const stored = snapshot.data() as StoredIntegration;
     if (stored.expiresAtMs > Date.now() + TOKEN_SKEW_MS) {
@@ -284,7 +284,7 @@ export async function getHighLevelAccessToken(options: {
       };
     }
     if (state.kind === "missing") {
-      throw new HttpsError("failed-precondition", "Connect a HighLevel location first.");
+      throw new HttpsError("failed-precondition", "Connect a CRM account first.");
     }
     if (state.kind === "wait") {
       await delay(300);
@@ -329,11 +329,11 @@ export async function getHighLevelAccessToken(options: {
       if (error instanceof HttpsError) throw error;
       throw new HttpsError(
         "failed-precondition",
-        "Could not refresh HighLevel authorization. Reconnect your location.",
+        "Could not refresh CRM authorization. Reconnect your account.",
       );
     }
   }
-  throw new HttpsError("deadline-exceeded", "HighLevel token refresh is still in progress. Retry shortly.");
+  throw new HttpsError("deadline-exceeded", "CRM authorization refresh is still in progress. Retry shortly.");
 }
 
 async function callHighLevel(options: {
@@ -364,10 +364,10 @@ async function callHighLevel(options: {
   if (!response.ok) {
     throw new HighLevelApiError(
       response.status === 401
-        ? "HighLevel authorization was rejected. Reconnect the location."
+        ? "CRM authorization was rejected. Reconnect your account."
         : response.status === 429
-          ? "HighLevel rate limit reached. Retry in a moment."
-          : "HighLevel could not return this data (HTTP " + response.status + ").",
+          ? "The CRM request limit was reached. Retry in a moment."
+          : "CRM data could not be loaded (HTTP " + response.status + ").",
       response.status,
     );
   }
@@ -414,7 +414,7 @@ export async function getHighLevelData(options: {
   if (project.data()?.highLevelLocationId !== token.locationId) {
     throw new HttpsError(
       "failed-precondition",
-      "This project is linked to another HighLevel location. Update the project connection.",
+      "This project is linked to another business account. Update the project connection.",
     );
   }
 

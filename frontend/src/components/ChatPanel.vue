@@ -140,7 +140,7 @@ watch(
         :disabled="generating || disabled"
         :rows="3"
         class="min-h-[72px] resize-none border-0 bg-paper text-xs shadow-none focus:ring-2 focus:ring-accent/15"
-        placeholder="Describe your HighLevel app…"
+        placeholder="Describe the CRM app you want to build…"
         @keydown.enter.exact.prevent="submit"
       />
       <div class="mt-2 flex items-center justify-between">

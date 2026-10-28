@@ -1,8 +1,8 @@
 {
-  "name": "genesis-highlevel-app-builder",
+  "name": "genesis-crm-app-builder",
   "private": true,
   "version": "1.0.0",
-  "description": "Secure AI app builder for HighLevel marketplace integrations",
+  "description": "Secure AI workspace for building CRM-powered applications",
   "engines": {
     "node": ">=22.12.0 <23"
   },

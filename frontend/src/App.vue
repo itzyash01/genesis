@@ -27,11 +27,11 @@ onMounted(() => {
   const url = new URL(window.location.href);
   const highLevelStatus = url.searchParams.get("highlevel");
   if (highLevelStatus === "connected") {
-    globalNotice.value = "HighLevel connected. Create a project to start building.";
+    globalNotice.value = "CRM account connected. Create a project to start building.";
     url.searchParams.delete("highlevel");
     window.history.replaceState({}, "", url.toString());
   } else if (highLevelStatus === "error") {
-    globalError.value = "HighLevel connection was not completed. Check OAuth setup and try again.";
+    globalError.value = "CRM connection was not completed. Check the connection settings and try again.";
     url.searchParams.delete("highlevel");
     window.history.replaceState({}, "", url.toString());
   }
@@ -97,20 +97,20 @@ async function connectHighLevel() {
     const result = await api.startHighLevelOAuth();
     window.location.assign(result.authorizationUrl);
   } catch (cause) {
-    globalError.value = cause instanceof Error ? cause.message : "HighLevel connection could not start.";
+    globalError.value = cause instanceof Error ? cause.message : "CRM connection could not start.";
   }
 }
 
 async function disconnectHighLevel() {
-  const confirmed = window.confirm("Disconnect HighLevel? Existing project files stay saved, but CRM data will no longer load.");
+  const confirmed = window.confirm("Disconnect this CRM account? Existing project files stay saved, but CRM data will no longer load.");
   if (!confirmed) return;
   globalError.value = "";
   try {
     await api.disconnectHighLevel();
     connection.value = { connected: false };
-    globalNotice.value = "HighLevel was disconnected.";
+    globalNotice.value = "CRM account disconnected.";
   } catch (cause) {
-    globalError.value = cause instanceof Error ? cause.message : "HighLevel could not be disconnected.";
+    globalError.value = cause instanceof Error ? cause.message : "CRM account could not be disconnected.";
   }
 }
 

@@ -80,13 +80,13 @@ async function resetPassword() {
             <Sparkles
               :size="13"
               class="text-emerald-300"
-            /> AI workspace for HighLevel
+            /> AI workspace for your CRM
           </div>
           <h1 class="text-4xl font-semibold leading-[1.08] tracking-[-0.04em] sm:text-5xl">
             Turn your workflow into an app.
           </h1>
           <p class="mt-5 max-w-md text-sm leading-7 text-white/60">
-            Describe what your team needs. Genesis builds a working app connected to your HighLevel location.
+            Describe what your team needs. Genesis builds a working app connected to your CRM account.
           </p>
           <div class="mt-10 flex items-center gap-2 text-xs text-white/45">
             <span class="h-1.5 w-1.5 rounded-full bg-emerald-300" />
@@ -108,7 +108,7 @@ async function resetPassword() {
               {{ mode === "signin" ? "Sign in to Genesis" : "Create your workspace" }}
             </h2>
             <p class="mt-2 text-sm text-slate-500">
-              {{ mode === "signin" ? "Pick up where your next app begins." : "Start building with your HighLevel account." }}
+              {{ mode === "signin" ? "Pick up where your next app begins." : "Start building with your CRM account." }}
             </p>
           </div>
           <form

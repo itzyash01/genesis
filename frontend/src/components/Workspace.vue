@@ -44,7 +44,7 @@ const displayedContent = computed(() => {
   return files.value.find((file) => file.path === selectedPath.value)?.content ?? "";
 });
 const currentFile = computed(() => files.value.find((file) => file.path === selectedPath.value));
-const connectionLabel = computed(() => props.project.highLevelLocationId || "HighLevel location");
+const connectionLabel = computed(() => props.project.highLevelLocationId ? "Connected" : "Not connected");
 
 watch(
   () => props.project.id,
@@ -267,7 +267,7 @@ async function previewDataRequest(request: { id: string; action: string; params:
     preview.value?.respond(
       request.id,
       undefined,
-      cause instanceof Error ? cause.message : "HighLevel data could not be loaded.",
+      cause instanceof Error ? cause.message : "CRM data could not be loaded.",
     );
   }
 }
@@ -406,7 +406,7 @@ function onEditorKey(event: KeyboardEvent) {
         :size="10"
         class="ml-1 inline animate-spin text-accent"
       /></span>
-      <span class="hidden sm:inline">Location · {{ connectionLabel }}</span>
+      <span class="hidden sm:inline">CRM account · {{ connectionLabel }}</span>
     </footer>
     <Sheet
       v-model:open="historyOpen"
