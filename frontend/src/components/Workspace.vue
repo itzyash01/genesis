@@ -294,9 +294,11 @@ function onEditorKey(event: KeyboardEvent) {
           <ArrowLeft :size="17" />
         </Button>
         <span class="hidden h-6 w-px bg-line sm:block" />
-        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink text-white">
-          <Blocks :size="15" />
-        </div>
+        <img
+          src="/genesis-mark.svg"
+          alt=""
+          class="h-8 w-8 shrink-0 rounded-lg"
+        />
         <div class="min-w-0">
           <h1 class="truncate text-xs font-semibold text-ink">
             {{ project.name }}

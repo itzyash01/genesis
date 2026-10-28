@@ -5,7 +5,7 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { ArrowRight, Blocks, LoaderCircle, Sparkles } from "@lucide/vue";
+import { ArrowRight, LoaderCircle, Sparkles } from "@lucide/vue";
 import { auth } from "../lib/firebase";
 import Button from "./ui/Button.vue";
 import Input from "./ui/Input.vue";
@@ -68,7 +68,11 @@ async function resetPassword() {
           class="relative flex items-center gap-2.5 font-semibold tracking-tight"
           href="#"
         >
-          <span class="grid h-9 w-9 place-items-center rounded-xl bg-white text-ink"><Blocks :size="19" /></span>
+          <img
+            src="/genesis-mark.svg"
+            alt=""
+            class="h-9 w-9 rounded-xl"
+          />
           <span>genesis</span>
         </a>
         <div class="relative max-w-lg py-10">

@@ -50,7 +50,11 @@ function submitProject() {
           class="flex items-center gap-2.5 font-semibold tracking-tight text-ink"
           href="#"
         >
-          <span class="grid h-9 w-9 place-items-center rounded-xl bg-ink text-white"><Blocks :size="18" /></span>
+          <img
+            src="/genesis-mark.svg"
+            alt=""
+            class="h-9 w-9 shrink-0 rounded-xl"
+          />
           genesis <span class="ml-1 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">studio</span>
         </a>
         <div class="flex items-center gap-3">
