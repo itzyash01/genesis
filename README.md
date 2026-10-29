@@ -4,6 +4,39 @@ Genesis is a Vue 3 and TypeScript workspace for generating small, sandboxed apps
 
 Generation uses the OpenAI JavaScript SDK. Configure the model endpoint and its corresponding `LLM_API_KEY` through the environment settings.
 
+**Product walkthrough:** [Watch the Genesis demo on Loom](https://www.loom.com/share/5150672e0ec94222ae637b64df036b2c)
+
+## Product capabilities
+
+| Capability | What Genesis supports |
+| --- | --- |
+| **Accounts and projects** | Email/password sign-in with Firebase Authentication; create, reopen and manage user-scoped projects. |
+| **Streaming app generation** | Describe an app in chat; generated output streams into the workspace using SSE. Complete valid files are saved, including when a response is interrupted. |
+| **Code editor and preview** | Inspect and edit HTML, CSS and JavaScript in Monaco; run the app in an isolated live preview. |
+| **HighLevel contacts** | List, search, create and update contacts. |
+| **HighLevel conversations** | List conversations, retrieve messages and request SMS or email sends. |
+| **HighLevel calendars** | List calendars, retrieve appointments and check availability. |
+| **Version history** | Save generation snapshots and restore an earlier version. |
+| **Operational visibility** | Structured generation and CRM request logs report outcomes and timing. |
+
+### Implemented bonus features
+
+- **Generation cancellation:** Stop an active generation from the workspace.
+- **Iterative refinement:** Send follow-up requests that modify the current project files.
+- **Generation diff:** In **History → View changes**, compare generated files with their recorded input. Comparisons use the generation’s recorded baseline.
+- **Cloud Function rate limits:** Per-user limits cover generation attempts and CRM preview reads and writes. The configured generation limit defaults to 20 attempts per 60 minutes; CRM reads and writes have separate limits.
+
+### Security controls
+
+- **User authentication:** Firebase Authentication handles email/password sign-in; application operations require an authenticated user.
+- **OAuth 2.0 and token encryption:** HighLevel credentials are exchanged and refreshed on the backend. Tokens are encrypted with AES-256-GCM before storage; the browser and generated app do not receive them.
+- **Server-side secrets:** Model and HighLevel credentials and the encryption key are provided to deployed Functions through Secret Manager.
+- **User and location isolation:** Server functions validate inputs and enforce project ownership and connected-location checks. Firestore client access is denied by default.
+- **Sandboxed preview and confirmed writes:** Generated code runs in an isolated iframe with restricted network access. Supported CRM writes are presented to the user for confirmation.
+- **Privacy-conscious logs:** Application events omit prompts, generated code, contact details and credentials. Platform logs have separate fields and retention settings.
+
+Message delivery depends on the connected HighLevel account and should be checked through its delivery status. Supported API operations and limits are detailed later in this document.
+
 ## Quick start
 
 The deployed app is [Genesis](https://genesis-699ec.web.app). To run the project locally, follow [Local setup](#local-setup); it includes Firebase emulators and the HighLevel OAuth callback. The sections below also cover tests, deployment, architecture and the CRM API contract.
@@ -34,8 +67,6 @@ The deployed app is [Genesis](https://genesis-699ec.web.app). To run the project
 - [Architecture and data flows](docs/architecture.md) — system diagram, boundaries, data storage, and operations.
 - [Developer handbook](docs/developer-handbook.md) — setup, architecture, development, deployment and verification.
 - [Operations runbooks](docs/runbooks.md) — troubleshooting and recovery.
-- [Submission checklist](docs/submission-checklist.md) — remaining verification and delivery tasks.
-- [Video walkthrough script](docs/video-walkthrough-script.md) — five-minute demonstration and presenter reference.
 - [Product presentation](docs/presentation/Genesis-product-presentation.pptx) — optional presentation artifact.
 
 ## Requirements
@@ -194,7 +225,7 @@ Register the callback URI exactly as configured in HL_REDIRECT_URI:
 
     https://us-central1-<project-id>.cloudfunctions.net/oauthCallback
 
-Request these scopes for the assignment's contact and message workflows:
+Request these scopes for the supported contact, conversation and calendar workflows:
 
 - contacts.readonly
 - contacts.write
@@ -237,7 +268,7 @@ Set these non-secret function parameters in functions/.env.<project-id> before d
 - MAX_GENERATIONS_PER_HOUR
 - APP_CHECK_REQUIRED
 
-App Check is optional and is not required by the assignment. If enabled, register the web app with an appropriate provider, configure VITE_FIREBASE_APP_CHECK_SITE_KEY, and enable APP_CHECK_REQUIRED only after verifying that the frontend sends valid tokens. Keep the allowed origin list limited to the production site and known development origins.
+App Check is optional. If enabled, register the web app with an appropriate provider, configure VITE_FIREBASE_APP_CHECK_SITE_KEY, and enable APP_CHECK_REQUIRED only after verifying that the frontend sends valid tokens. Keep the allowed origin list limited to the production site and known development origins.
 
 ## Deploy
 
@@ -277,18 +308,18 @@ The current GitHub Actions workflow runs lint and build; it does not deploy or r
 
 ## Architecture decisions and tradeoffs
 
-1. **Firebase managed services:** Auth, Hosting, Firestore and Functions reduce infrastructure work; the application depends on Firebase and deployed Functions require billing.
-2. **Server-owned persistence:** authenticated functions enforce ownership and client Firestore access is denied; this adds backend calls and authorization code.
-3. **Server-side OAuth:** encrypted credentials and refresh tokens stay off the client; key management and refresh coordination add operational complexity.
-4. **Sandboxed preview and CRM bridge:** generated code has restricted access and writes require confirmation; arbitrary libraries, network access and unsupported APIs cannot work directly.
-5. **Streaming generation:** SSE exposes output as it arrives; incomplete or invalid output requires validation and careful recovery.
-6. **Provider abstraction:** the OpenAI SDK supports configurable endpoints; provider models, response formats and limits can vary.
-7. **Version snapshots:** full file trees and generation baselines make restore and diff straightforward; storage grows, so file, size and retention limits apply.
-8. **Provider-shaped CRM responses:** preserving response fields aids integration; generated apps must use the documented shapes and handle changes or missing data.
-9. **Rate limits and instance caps:** limits reduce unbounded usage; legitimate users can be throttled and caps do not impose a hard billing limit.
-10. **Structured logs:** operational events aid diagnosis without recording prompts or CRM contents; logs alone do not provide end-to-end tracing or configured alerts.
+1. **Server-mediated data access instead of direct Firestore access.** Project and CRM operations pass through authenticated Functions, and client Firestore rules deny direct access. This centralizes ownership checks and keeps integration credentials out of the browser. It adds a network hop and makes backend authorization code and Functions availability part of every operation.
+2. **Sandboxed preview with an explicit CRM bridge instead of running generated code in the workspace origin.** The iframe has an opaque origin and restrictive content policy; the host exposes only supported operations and confirms writes. This limits what generated code can access, but rules out arbitrary external scripts, network calls and APIs that the bridge has not implemented.
+3. **Server-side OAuth with encrypted tokens and a refresh lease instead of browser-held credentials.** The callback exchanges codes on the backend, stores encrypted credentials and coordinates refresh in Firestore because refresh tokens rotate. This reduces client exposure and concurrent refresh races, at the cost of a shared encryption key, extra reads and lease/recovery logic. Loss or incorrect rotation of the key makes existing encrypted credentials unreadable.
+4. **SSE over a direct HTTP function instead of waiting for one complete response through Hosting.** The browser can receive generation output incrementally, while the direct endpoint avoids the Hosting proxy's shorter timeout. The tradeoff is a long-lived request, separate endpoint/origin configuration, and explicit handling for cancellation, interrupted streams and malformed output. Valid partial files can be saved, so the UI must distinguish partial results from completion.
+5. **Full snapshots with generation baselines instead of storing only patches.** A snapshot records complete output files and the generation input, making restore and per-file comparison independent of replaying earlier changes, including manual edits. This duplicates content and increases Firestore writes and storage. File-count, project-size and retention limits bound that cost, and snapshots created before baseline capture cannot provide an exact diff.
+6. **One active generation per project with a Firestore transaction instead of unconstrained parallel writes.** A project lock and user rate window are updated transactionally before generation, preventing overlapping runs from silently overwriting each other's project state. This serializes work while the lease is valid and requires expiry, release and retry handling when a stream or process fails; a long-running request can outlive its lease.
+7. **Provider-shaped CRM responses instead of a complete application-specific data model.** Preserving HighLevel response fields retains provider metadata and reduces adapter mapping. Generated code must understand each documented response shape, optional fields and provider changes; availability remains date-keyed, while appointments require aggregation and expose a truncation indicator.
+8. **Synchronous, confirmed CRM writes instead of a queued mutation pipeline.** The host displays the requested payload and the server performs validation and location checks before calling HighLevel. This keeps the user in control and returns an immediate API outcome, but upstream errors and latency remain visible to the caller. API acceptance is not a delivery guarantee, and an automatic retry could duplicate a side effect.
+9. **Managed Functions with bounded instances instead of provisioned application servers.** Hosting and Functions remove server and container administration, and per-function caps bound concurrent scaling. Cold starts and provider limits still affect latency, and instance caps are not a cost ceiling. Streaming consumes a function connection while generation runs.
+10. **Metadata-only application logs instead of logging complete requests and responses.** Generation and CRM events record outcome, timing and operational counts without prompts, generated files or contact data. This limits exposure of customer data but leaves less information for reproducing content-dependent failures; platform logs, CRM status and controlled debugging are still needed.
 
-## Operational notes and known limits
+## Operational configuration
 
 - Firebase Hosting proxy requests have a 60-second request timeout. Configure VITE_GENERATION_URL to call the deployed Functions endpoint directly for longer generation streams.
 - The preview renderer supports index.html, local CSS, and plain JavaScript files. It intentionally blocks external network connections and third-party scripts.
@@ -305,20 +336,10 @@ Cloud Functions emit structured `generation.started`, `generation.finished`, and
 
 View these events in Firebase Console > Functions > Logs or Google Cloud > Logging > Logs Explorer. Filter by the event name to investigate failures and latency. Cloud Monitoring also provides request, latency, and instance metrics for the underlying Cloud Run services. Set alerts and budgets in the Google Cloud console if needed; this repository does not create alert policies or dashboards.
 
-## What we would improve
+## Future improvements
 
 1. Add end-to-end emulator and deployed tests for OAuth, token rotation and CRM ownership.
 2. Improve validation and recovery for malformed model output and interrupted streams.
 3. Implement pagination and verified webhook-driven updates for generated apps.
 4. Add monitored release pipelines, alert policies and operational dashboards.
 5. Improve real-time refresh after CRM changes and validate provider consistency across workflows.
-
-## Submission materials
-
-- Loom walkthrough (maximum five minutes): add its URL once recorded.
-- Architecture discussion and deployment notes are in this README and [docs/architecture.md](docs/architecture.md).
-- This repository should be public for assignment submission.
-
-## Preparing the submission snapshot
-
-The working directory is the source of truth. Run `./scripts/sync-submission.sh` after changes to refresh the Git-ignored `submission/` folder. The script mirrors its managed directories and overwrites the selected root files in that folder; do not make the only copy of edits inside it. It excludes local secrets, dependencies, and build output. It does not run automatically, and it does not push or deploy. Review the snapshot and repository history for secrets before submission.

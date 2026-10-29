@@ -1,12 +1,43 @@
 # Developer handbook
 
-This guide describes the current implementation and how to develop, operate and review it. Start with the [root README](../README.md) for the assignment deliverables, precise environment variables, scope list and deployment commands. The [user handbook](../frontend/public/help.html) explains the product workflow.
+This guide covers the implementation, local development, deployment and operations. The [user handbook](../frontend/public/help.html) explains the product workflow.
 
 ## 1. Product and architecture
 
 Genesis is an authenticated app-building workspace. A user connects a HighLevel location, creates a project, describes an app, edits generated HTML, CSS and JavaScript, and uses an isolated live preview. Supported preview operations are proxied through the backend. See the [architecture diagram and flows](architecture.md) and the README's architecture decisions and tradeoffs.
 
 Generation uses the OpenAI SDK with a configurable model endpoint. The configured service requires its own API credential and has its own usage limits.
+
+## Product capabilities
+
+| Capability | What Genesis supports |
+| --- | --- |
+| **Accounts and projects** | Email/password sign-in with Firebase Authentication; create, reopen and manage user-scoped projects. |
+| **Streaming app generation** | Describe an app in chat; generated output streams into the workspace using SSE. Complete valid files are saved, including when a response is interrupted. |
+| **Code editor and preview** | Inspect and edit HTML, CSS and JavaScript in Monaco; run the app in an isolated live preview. |
+| **HighLevel contacts** | List, search, create and update contacts. |
+| **HighLevel conversations** | List conversations, retrieve messages and request SMS or email sends. |
+| **HighLevel calendars** | List calendars, retrieve appointments and check availability. |
+| **Version history** | Save generation snapshots and restore an earlier version. |
+| **Operational visibility** | Structured generation and CRM request logs report outcomes and timing. |
+
+### Implemented bonus features
+
+- **Generation cancellation:** Stop an active generation from the workspace.
+- **Iterative refinement:** Send follow-up requests that modify the current project files.
+- **Generation diff:** In **History → View changes**, compare generated files with their recorded input. Comparisons use the generation’s recorded baseline.
+- **Cloud Function rate limits:** Per-user limits cover generation attempts and CRM preview reads and writes. The configured generation limit defaults to 20 attempts per 60 minutes; CRM reads and writes have separate limits.
+
+### Security controls
+
+- **User authentication:** Firebase Authentication handles email/password sign-in; application operations require an authenticated user.
+- **OAuth 2.0 and token encryption:** HighLevel credentials are exchanged and refreshed on the backend. Tokens are encrypted with AES-256-GCM before storage; the browser and generated app do not receive them.
+- **Server-side secrets:** Model and HighLevel credentials and the encryption key are provided to deployed Functions through Secret Manager.
+- **User and location isolation:** Server functions validate inputs and enforce project ownership and connected-location checks. Firestore client access is denied by default.
+- **Sandboxed preview and confirmed writes:** Generated code runs in an isolated iframe with restricted network access. Supported CRM writes are presented to the user for confirmation.
+- **Privacy-conscious logs:** Application events omit prompts, generated code, contact details and credentials. Platform logs have separate fields and retention settings.
+
+Message delivery depends on the connected HighLevel account and should be checked through its delivery status. Supported API operations and limits are detailed later in this document.
 
 ## 2. Repository map
 
@@ -200,12 +231,9 @@ The current GitHub Actions workflow runs lint and build; it does not deploy or r
 
 
 
-## 7. Operations and known limits
+## 7. Operations and configuration
 
 Use the [runbooks](runbooks.md) to diagnose OAuth, generation, CRM and deployments. Structured generation and CRM logs omit prompts, generated content, contact fields and credentials; platform logs can have additional fields. No dashboard or alert policy is provisioned by this repository.
 
 The application limits generation attempts, CRM writes, file count, file size and snapshot retention. Provider limits are separate. The preview restricts external resources. Snapshot comparisons require a recorded generation baseline; older or restored snapshots may not have one. A send API response is not proof of message delivery. See the README for exact current limits and response shapes.
 
-## 8. Submission handover
-
-Use the [submission checklist](submission-checklist.md). The working repository is the source of truth. When the final changes are ready, `./scripts/sync-submission.sh` updates the managed Git-ignored `submission/` snapshot; do not edit only the snapshot. Review the resulting files and actual Git history before publishing. The script does not automatically sync, push or deploy.

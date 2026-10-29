@@ -17,3 +17,6 @@ functions/.secret.local
 coverage/
 submission/
 .presentation-build/
+
+# Local presentation and submission planning
+handoff/

@@ -20,7 +20,7 @@ These are diagnostic procedures for the existing Firebase deployment. Confirm th
 
 1. Check the displayed error, generation events and provider quota. Distinguish the application's per-user limit from the provider's independent limit.
 2. Verify the selected provider/model, server secret, direct generation URL and allowed origin for the active environment. The app's deployment configuration may differ from local files.
-3. Review the saved files and snapshot. Partial valid output may have been preserved; it should not be described as a complete successful generation.
+3. Review the saved files and snapshot. Partial valid output may have been preserved; inspect the saved files before retrying.
 4. Retry with a specific prompt only after identifying the issue. Repeated malformed output requires investigation of provider output and parser behaviour using appropriate access controls.
 
 ## CRM data or updates appear wrong

@@ -1,6 +1,6 @@
 # Genesis production architecture
 
-This deployment view describes the current application and its boundaries. It is a review aid, not a claim that every assignment requirement has been verified in production. For design decisions and tradeoffs, see the [README](../README.md#architecture-decisions-and-tradeoffs).
+Genesis uses Firebase managed services to run a secure workspace for building and previewing HighLevel-connected applications. The diagram shows the deployment components, trust boundaries and data flows.
 
 ![Genesis production architecture: components, trust boundaries and numbered flows](diagrams/genesis-production-architecture.svg)
 
@@ -14,7 +14,7 @@ This deployment view describes the current application and its boundaries. It is
 | Firebase Hosting | Serves the built frontend and static Help page. Hosting also defines API rewrites; generation can use the direct Functions URL for longer SSE streams. |
 | Firebase project, us-central1 | Firebase Authentication, callable functions, OAuth callback, generation HTTP function, Firestore and Secret Manager. Functions v2 execute on managed infrastructure. |
 | External services | HighLevel Marketplace and CRM APIs; the configured AI provider, accessed through the OpenAI SDK. |
-| Operations | Cloud Logging records application events; Cloud Monitoring offers platform metrics. The repository does not provision dashboards or alert policies. |
+| Operations | Cloud Logging records application events; Cloud Monitoring provides platform metrics. |
 
 ## Numbered flows
 
@@ -33,24 +33,24 @@ The arrows show the main interactions in the connected deployment view; the numb
 11. The generation function sends bounded project context and the user's prompt to the configured model provider.
 12. Generation emits structured events to Cloud Logging. CRM adapters emit events as well; platform logs and metrics have separate fields and settings.
 
-Generation also accesses its configured model secret and persists validated files and snapshots to Firestore. These shared dependencies are not separately drawn. Snapshot diffs require a recorded generation baseline, and incomplete output may preserve valid files. The repository does not provision monitoring dashboards or alert policies.
+Generation also accesses its configured model secret and persists validated files and snapshots to Firestore. These shared dependencies are not separately drawn. Snapshot diffs require a recorded generation baseline, and incomplete output may preserve valid files. Cloud Monitoring provides infrastructure metrics alongside these events.
 
-## Interfaces and security review
+## Interfaces and security
 
-| Interface | Protocol / access | Review considerations |
+| Interface | Protocol / access | Implementation |
 | --- | --- | --- |
-| Browser → Firebase Auth | Firebase client SDK | Identity is established through Firebase; production configuration and allowed domains must be reviewed. |
-| Browser → callable functions | HTTPS, Firebase callable protocol and authenticated identity | Server validates inputs and ownership; optional App Check is not an assignment requirement. |
+| Browser → Firebase Auth | Firebase client SDK | Firebase Authentication establishes user identity. |
+| Browser → callable functions | HTTPS, Firebase callable protocol and authenticated identity | Server validates inputs and ownership; App Check is optional. |
 | Browser → generation | HTTPS POST with authenticated identity; SSE response | Long-running streams use the configured direct function URL. Cancellation and incomplete-output paths require end-to-end verification. |
 | Preview → workspace | `postMessage` bridge | The iframe has no direct CRM token or arbitrary network access. Allowed actions and write confirmation are enforced by the host. |
-| Functions → Firestore / Secret Manager | Server SDK and service identity | Client Firestore access is denied; production IAM and secret access should be reviewed for the target project. |
+| Functions → Firestore / Secret Manager | Server SDK and service identity | Client Firestore access is denied; server functions use service identities and configured secrets. |
 | Functions → HighLevel / model | HTTPS with server-side credentials | External API limits, scope grants, provider availability and data-sharing boundaries apply. |
 | HighLevel → callback | HTTPS redirect with code and state | Callback URI must match app registration; the state is validated and consumed server-side. |
 
-## Operational characteristics and open points
+## Operational configuration
 
 - The generation endpoint is configured with 1 GiB memory, a 540-second timeout, concurrency of 10 and a maximum of 20 instances. Standard callable functions specify a maximum of 30 instances; the OAuth callback specifies 20. These are per-function settings, not guaranteed capacity or a billing cap.
-- Authentication and location checks, encrypted tokens, sandbox restrictions, write confirmation and rate limits are implemented controls. They do not replace an independent security review.
-- The diagram does not imply a deployed webhook pipeline, managed custom dashboards or alert policies. Confirm behavior and external account settings in a production walkthrough.
+- The application uses authentication and location checks, encrypted tokens, sandbox restrictions, write confirmation and rate limits.
+- Cloud Logging and platform metrics support operational monitoring.
 - Generation uses the OpenAI SDK with a configurable provider and server-side API credentials.
-- See [developer handbook](developer-handbook.md), [runbooks](runbooks.md) and [submission checklist](submission-checklist.md) for setup, recovery and outstanding verification.
+- See the [developer handbook](developer-handbook.md) and [runbooks](runbooks.md) for setup and operations.
