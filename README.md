@@ -319,6 +319,16 @@ The current GitHub Actions workflow runs lint and build; it does not deploy or r
 9. **Managed Functions with bounded instances instead of provisioned application servers.** Hosting and Functions remove server and container administration, and per-function caps bound concurrent scaling. Cold starts and provider limits still affect latency, and instance caps are not a cost ceiling. Streaming consumes a function connection while generation runs.
 10. **Metadata-only application logs instead of logging complete requests and responses.** Generation and CRM events record outcome, timing and operational counts without prompts, generated files or contact data. This limits exposure of customer data but leaves less information for reproducing content-dependent failures; platform logs, CRM status and controlled debugging are still needed.
 
+### Architecture decision I’m proud of: the sandboxed preview and CRM bridge
+
+Genesis runs AI-generated apps in a **sandboxed iframe** so they can use live HighLevel data without receiving OAuth credentials.
+
+A bridge injected into the preview exposes defined methods such as `window.genesis.crm.contacts()`. When generated code calls a method, the bridge sends the request to the Genesis workspace using `postMessage`. The workspace checks the source and action, then invokes an authenticated Firebase Function. The function validates access and calls HighLevel using server-side credentials; the response returns through the bridge to the generated app.
+
+For CRM writes, Genesis asks the user to confirm the action before sending it. The bridge also handles request tracking, errors and timeouts.
+
+This design gives generated apps a simple interface to CRM data while Genesis controls credentials, authorization and the operations available to generated code.
+
 ## Operational configuration
 
 - Firebase Hosting proxy requests have a 60-second request timeout. Configure VITE_GENERATION_URL to call the deployed Functions endpoint directly for longer generation streams.
