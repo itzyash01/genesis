@@ -11,7 +11,7 @@ import {
   hlClientSecret,
   hlRedirectUri,
   hlScopes,
-  groqApiKey,
+  llmApiKey,
   tokenEncryptionKey,
 } from "./config.js";
 import { auth, db } from "./admin.js";
@@ -21,10 +21,12 @@ import {
   finishHighLevelOAuth,
   getHighLevelConnection,
   getHighLevelData,
+  executeHighLevelWrite,
   HighLevelApiError,
 } from "./highlevel.js";
 import { generateProjectFiles } from "./generation.js";
 import { pruneOldSnapshots } from "./snapshot-retention.js";
+import { compareSnapshotFiles } from "./snapshot-diff.js";
 import {
   fileDocumentId,
   filePathSchema,
@@ -44,6 +46,63 @@ const callableOptions = {
   maxInstances: 30,
   enforceAppCheck: APP_CHECK_REQUIRED,
 };
+
+const crmIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/);
+const contactFieldsSchema = z.object({
+  firstName: z.string().trim().max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  name: z.string().trim().max(200).optional(),
+  email: z.string().trim().email().max(254).optional(),
+  phone: z.string().trim().max(40).optional(),
+  companyName: z.string().trim().max(200).optional(),
+  address1: z.string().trim().max(300).optional(),
+  city: z.string().trim().max(100).optional(),
+  state: z.string().trim().max(100).optional(),
+  postalCode: z.string().trim().max(24).optional(),
+  website: z.string().trim().max(500).optional(),
+  timezone: z.string().trim().max(64).optional(),
+}).strict();
+const createContactSchema = contactFieldsSchema.refine(
+  (contact) => Boolean(contact.email || contact.phone),
+  "Provide an email address or phone number.",
+);
+const updateContactSchema = contactFieldsSchema.refine(
+  (changes) => Object.values(changes).some((value) => value !== undefined),
+  "At least one contact field is required.",
+);
+const highLevelWriteSchema = z.discriminatedUnion("action", [
+  z.object({
+    projectId: projectIdSchema,
+    action: z.literal("createContact"),
+    contact: createContactSchema,
+  }).strict(),
+  z.object({
+    projectId: projectIdSchema,
+    action: z.literal("updateContact"),
+    contactId: crmIdSchema,
+    changes: updateContactSchema,
+  }).strict(),
+  z.object({
+    projectId: projectIdSchema,
+    action: z.literal("createAppointment"),
+    contactId: crmIdSchema,
+    calendarId: crmIdSchema,
+    startTime: z.string().datetime({ offset: true }),
+    endTime: z.string().datetime({ offset: true }).optional(),
+    title: z.string().trim().min(1).max(200),
+  }).strict().refine((input) => !input.endTime || Date.parse(input.endTime) > Date.parse(input.startTime), "End time must be after start time."),
+  z.object({
+    projectId: projectIdSchema,
+    action: z.literal("sendMessage"),
+    contactId: crmIdSchema,
+    type: z.enum(["SMS", "Email"]),
+    message: z.string().trim().min(1).max(5_000),
+    subject: z.string().trim().max(250).optional(),
+  }).strict().refine(
+    (input) => input.type !== "Email" || Boolean(input.subject),
+    "Email messages require a subject.",
+  ),
+]);
 
 function requireUid(request: { auth?: { uid: string } | null }): string {
   if (!request.auth?.uid) {
@@ -66,8 +125,12 @@ function projectRef(uid: string, projectId: string) {
 
 function assertProjectExists(data: DocumentData | undefined) {
   if (!data || data.deletedAt) throw new HttpsError("not-found", "Project not found.");
+}
+
+function assertProjectEditable(data: DocumentData | undefined) {
+  assertProjectExists(data);
   if (
-    data.activeGenerationId &&
+    data?.activeGenerationId &&
     Number(data.generationLeaseUntilMs ?? Number.POSITIVE_INFINITY) > Date.now()
   ) {
     throw new HttpsError(
@@ -224,7 +287,7 @@ export const updateProject = onCall(callableOptions, async (request) => {
   const ref = projectRef(uid, parsed.projectId);
   await db.runTransaction(async (transaction) => {
     const project = await transaction.get(ref);
-    assertProjectExists(project.data());
+    assertProjectEditable(project.data());
     transaction.update(ref, {
       ...(parsed.name !== undefined ? { name: parsed.name } : {}),
       ...(parsed.description !== undefined ? { description: parsed.description } : {}),
@@ -241,7 +304,7 @@ export const softDeleteProject = onCall(callableOptions, async (request) => {
   const ref = projectRef(uid, parsed.projectId);
   await db.runTransaction(async (transaction) => {
     const project = await transaction.get(ref);
-    assertProjectExists(project.data());
+    assertProjectEditable(project.data());
     transaction.update(ref, {
       deletedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -274,7 +337,7 @@ export const saveFile = onCall(callableOptions, async (request) => {
     z.object({
       projectId: projectIdSchema,
       path: filePathSchema,
-      content: z.string().max(FILE_LIMIT_BYTES),
+      content: z.string().refine((value) => Buffer.byteLength(value, "utf8") <= FILE_LIMIT_BYTES && !value.includes("\0")),
     }),
     request.data,
   );
@@ -282,7 +345,7 @@ export const saveFile = onCall(callableOptions, async (request) => {
   const currentFiles = ref.collection("files");
   await db.runTransaction(async (transaction) => {
     const project = await transaction.get(ref);
-    assertProjectExists(project.data());
+    assertProjectEditable(project.data());
     const fileRef = currentFiles.doc(fileDocumentId(parsed.path));
     const files = await transaction.get(currentFiles.limit(PROJECT_FILE_LIMIT + 1));
     if (files.size > PROJECT_FILE_LIMIT) {
@@ -336,6 +399,40 @@ export const listSnapshots = onCall(callableOptions, async (request) => {
   };
 });
 
+export const getSnapshotDiff = onCall(callableOptions, async (request) => {
+  const uid = requireUid(request);
+  const parsed = parseInput(z.object({ projectId: projectIdSchema, snapshotId: z.string().uuid() }), request.data);
+  const ref = projectRef(uid, parsed.projectId);
+  const project = await ref.get();
+  assertProjectExists(project.data());
+  const snapshotRef = ref.collection("snapshots").doc(parsed.snapshotId);
+  const snapshot = await snapshotRef.get();
+  if (!snapshot.exists || snapshot.data()?.status !== "complete") {
+    throw new HttpsError("not-found", "Snapshot not found.");
+  }
+  if (snapshot.data()?.diffBase !== "generation-input") {
+    return { available: false as const, changes: [] };
+  }
+  const [before, after] = await Promise.all([
+    snapshotRef.collection("beforeFiles").limit(PROJECT_FILE_LIMIT + 1).get(),
+    snapshotRef.collection("files").limit(PROJECT_FILE_LIMIT + 1).get(),
+  ]);
+  if (before.size > PROJECT_FILE_LIMIT || after.size > PROJECT_FILE_LIMIT) {
+    throw new HttpsError("failed-precondition", "Snapshot has too many files to compare safely.");
+  }
+  if (before.size !== snapshot.data()?.diffBaseFileCount || after.size !== snapshot.data()?.fileCount) {
+    throw new HttpsError("failed-precondition", "Snapshot files are incomplete and cannot be compared.");
+  }
+  const readFiles = (docs: typeof before.docs) => docs.map((doc) => {
+    const data = doc.data();
+    if (typeof data.path !== "string" || typeof data.content !== "string") {
+      throw new HttpsError("failed-precondition", "Snapshot contains invalid file data.");
+    }
+    return { path: data.path, content: data.content };
+  });
+  return { available: true as const, changes: compareSnapshotFiles(readFiles(before.docs), readFiles(after.docs)) };
+});
+
 export const restoreSnapshot = onCall(callableOptions, async (request) => {
   const uid = requireUid(request);
   const parsed = parseInput(
@@ -353,7 +450,7 @@ export const restoreSnapshot = onCall(callableOptions, async (request) => {
       transaction.get(ref),
       transaction.get(snapshotRef),
     ]);
-    assertProjectExists(project.data());
+    assertProjectEditable(project.data());
     if (!snapshot.exists || snapshot.data()?.status !== "complete") {
       throw new HttpsError("not-found", "Snapshot not found.");
     }
@@ -375,40 +472,46 @@ export const restoreSnapshot = onCall(callableOptions, async (request) => {
     if (previousFiles.size > 150 || savedFiles.size > 150) {
       throw new HttpsError("failed-precondition", "Project or snapshot has too many files to restore safely.");
     }
-    const batch = db.batch();
     const nextSnapshotRef = ref.collection("snapshots").doc(randomUUID());
-    previousFiles.docs.forEach((document) => batch.delete(document.ref));
-    batch.set(nextSnapshotRef, {
-      version: locked.version,
-      status: "complete",
-      fileCount: savedFiles.size,
-      prompt: "Restored snapshot version " + locked.sourceVersion,
-      createdBy: uid,
-      createdAt: FieldValue.serverTimestamp(),
-      restoredFromSnapshotId: parsed.snapshotId,
-    });
-    savedFiles.docs.forEach((document) => {
-      const data = document.data();
-      batch.set(ref.collection("files").doc(document.id), {
-        path: data.path,
-        content: data.content,
+    await db.runTransaction(async (transaction) => {
+      const currentProject = await transaction.get(ref);
+      if (!currentProject.exists || currentProject.data()?.deletedAt ||
+        currentProject.data()?.activeGenerationId !== restoreId ||
+        Number(currentProject.data()?.generationLeaseUntilMs ?? 0) <= Date.now()) {
+        throw new HttpsError("aborted", "The project changed before the snapshot could be restored. Try again.");
+      }
+      previousFiles.docs.forEach((document) => transaction.delete(document.ref));
+      transaction.set(nextSnapshotRef, {
+        version: locked.version,
+        status: "complete",
+        fileCount: savedFiles.size,
+        prompt: "Restored snapshot version " + locked.sourceVersion,
+        createdBy: uid,
+        createdAt: FieldValue.serverTimestamp(),
+        restoredFromSnapshotId: parsed.snapshotId,
+      });
+      savedFiles.docs.forEach((document) => {
+        const data = document.data();
+        transaction.set(ref.collection("files").doc(document.id), {
+          path: data.path,
+          content: data.content,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        transaction.set(nextSnapshotRef.collection("files").doc(document.id), {
+          path: data.path,
+          content: data.content,
+        });
+      });
+      transaction.update(ref, {
+        version: locked.version,
+        lastSnapshotId: nextSnapshotRef.id,
         updatedAt: FieldValue.serverTimestamp(),
-      });
-      batch.set(nextSnapshotRef.collection("files").doc(document.id), {
-        path: data.path,
-        content: data.content,
+        restoredFromSnapshotId: parsed.snapshotId,
+        activeGenerationId: FieldValue.delete(),
+        generationStartedAt: FieldValue.delete(),
+        generationLeaseUntilMs: FieldValue.delete(),
       });
     });
-    batch.update(ref, {
-      version: locked.version,
-      lastSnapshotId: nextSnapshotRef.id,
-      updatedAt: FieldValue.serverTimestamp(),
-      restoredFromSnapshotId: parsed.snapshotId,
-      activeGenerationId: FieldValue.delete(),
-      generationStartedAt: FieldValue.delete(),
-      generationLeaseUntilMs: FieldValue.delete(),
-    });
-    await batch.commit();
     await pruneOldSnapshots(ref);
     return { success: true, fileCount: savedFiles.size, version: locked.version };
   } catch (error) {
@@ -457,9 +560,14 @@ export const highLevelData = onCall(
     const parsed = parseInput(
       z.object({
         projectId: projectIdSchema,
-        kind: z.enum(["contacts", "conversations", "messages", "calendars", "appointments"]),
+        kind: z.enum(["contacts", "contact", "conversations", "messages", "calendars", "appointments", "availability"]),
         query: z.string().max(100).optional(),
+        contactId: crmIdSchema.optional(),
         conversationId: z.string().max(128).optional(),
+        calendarId: crmIdSchema.optional(),
+        startDate: z.number().int().safe().optional(),
+        endDate: z.number().int().safe().optional(),
+        timezone: z.string().max(64).optional(),
       }),
       request.data,
     );
@@ -494,6 +602,59 @@ export const highLevelData = onCall(
         }
         if (error.status === 429) {
           throw new HttpsError("resource-exhausted", error.message);
+        }
+        throw new HttpsError("unavailable", error.message);
+      }
+      throw error;
+    }
+  },
+);
+
+export const highLevelWrite = onCall(
+  { ...callableOptions, secrets: [hlClientSecret, tokenEncryptionKey] },
+  async (request) => {
+    const uid = requireUid(request);
+    const parsed = parseInput(highLevelWriteSchema, request.data);
+    try {
+      const rateRef = db.doc("users/" + uid + "/rateLimits/highlevelWrites");
+      await db.runTransaction(async (transaction) => {
+        const current = await transaction.get(rateRef);
+        const now = Date.now();
+        const data = current.data() as { windowStartMs?: number; count?: number } | undefined;
+        const expired = !data || now - (data.windowStartMs ?? 0) >= 60_000;
+        const count = expired ? 0 : data.count ?? 0;
+        if (count >= 10) {
+          throw new HttpsError("resource-exhausted", "CRM write limit reached. Wait a moment and try again.");
+        }
+        transaction.set(rateRef, {
+          windowStartMs: expired ? now : data?.windowStartMs,
+          count: count + 1,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+      return await executeHighLevelWrite({
+        uid,
+        projectId: parsed.projectId,
+        input: parsed,
+        clientId: hlClientId.value(),
+        clientSecret: hlClientSecret.value(),
+        encryptionKey: tokenEncryptionKey.value(),
+      });
+    } catch (error) {
+      if (error instanceof HighLevelApiError) {
+        if (error.status === 401) {
+          throw new HttpsError("failed-precondition", error.message);
+        }
+        if (error.status === 403) {
+          throw new HttpsError("permission-denied", "This action is not authorized. Check the connected account's permissions.");
+        }
+        if (error.status === 429) {
+          throw new HttpsError("resource-exhausted", error.message);
+        }
+        if (error.status === 400 || error.status === 422) {
+          throw new HttpsError("invalid-argument", error.message.startsWith("CRM rejected the request:")
+            ? error.message
+            : "The CRM rejected the request. Check the message and account settings.");
         }
         throw new HttpsError("unavailable", error.message);
       }
@@ -575,7 +736,7 @@ export const api = onRequest(
     memory: "1GiB",
     maxInstances: 20,
     concurrency: 10,
-    secrets: [hlClientSecret, tokenEncryptionKey, groqApiKey],
+    secrets: [hlClientSecret, tokenEncryptionKey, llmApiKey],
   },
   async (request, response) => {
     addCorsHeaders(request, response);
@@ -669,7 +830,8 @@ export const api = onRequest(
         uid,
         projectId: input.projectId,
         prompt: input.prompt,
-        apiKey: groqApiKey.value(),
+        apiKey: llmApiKey.value(),
+        crmCredentials: { clientId: hlClientId.value(), clientSecret: hlClientSecret.value(), encryptionKey: tokenEncryptionKey.value() },
         signal: controller.signal,
         send,
       });

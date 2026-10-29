@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ArrowLeft, Cloud, History, LoaderCircle, MoreHorizontal, ShieldCheck } from "@lucide/vue";
-import type { ChatMessage, GenerationEvent, Project, ProjectFile, Snapshot } from "../lib/api";
+import type { ChatMessage, GenerationEvent, HighLevelReadKind, HighLevelWriteInput, Project, ProjectFile, Snapshot } from "../lib/api";
 import { api, streamGeneration } from "../lib/api";
 import ChatPanel from "./ChatPanel.vue";
 import CodePanel from "./CodePanel.vue";
 import PreviewPanel from "./PreviewPanel.vue";
+import SnapshotDiff from "./SnapshotDiff.vue";
 import Button from "./ui/Button.vue";
 import Badge from "./ui/Badge.vue";
 import Sheet from "./ui/Sheet.vue";
+import Dialog from "./ui/Dialog.vue";
 
 const props = defineProps<{ project: Project; initialFiles: ProjectFile[] }>();
 const emit = defineEmits<{ back: []; updated: [project: Project] }>();
 
 const files = ref<ProjectFile[]>([...props.initialFiles]);
+const previewBeforeGeneration = ref<ProjectFile[]>([]);
 const messages = ref<ChatMessage[]>([]);
 const snapshots = ref<Snapshot[]>([]);
 const selectedPath = ref(props.initialFiles.find((file) => file.path === "index.html")?.path ?? props.initialFiles[0]?.path ?? "");
@@ -22,13 +25,27 @@ const busy = ref(false);
 const generating = ref(false);
 const historyOpen = ref(false);
 const historyLoading = ref(false);
+const diffOpen = ref(false);
+const diffLoading = ref(false);
+const diffSnapshot = ref<Snapshot | null>(null);
+const diffResult = ref<Awaited<ReturnType<typeof api.getSnapshotDiff>> | null>(null);
+const diffError = ref("");
 const streamText = ref("");
 const streamError = ref("");
 const notice = ref("");
 const refreshKey = ref(0);
 const controller = ref<AbortController | null>(null);
 const preview = ref<InstanceType<typeof PreviewPanel> | null>(null);
-const initialSavedContent = ref("");
+const initialSavedContent = ref(props.initialFiles.find((file) => file.path === selectedPath.value)?.content ?? "");
+const confirmationOpen = ref(false);
+const pendingCrmWrite = ref<{
+  requestId: string;
+  input: HighLevelWriteInput;
+  title: string;
+  details: string;
+} | null>(null);
+const crmWriteBusy = ref(false);
+const crmContactLookupBusy = ref(false);
 const VIRTUAL_PATH = "AI response stream";
 let outputPartial = false;
 let outputErrored = false;
@@ -49,6 +66,7 @@ const connectionLabel = computed(() => props.project.highLevelLocationId ? "Conn
 watch(
   () => props.project.id,
   async () => {
+    diffOpen.value = false;
     files.value = [...props.initialFiles];
     selectedPath.value = files.value.find((file) => file.path === "index.html")?.path ?? files.value[0]?.path ?? "";
     await loadMessages();
@@ -58,6 +76,9 @@ watch(selectedPath, () => {
   const file = files.value.find((item) => item.path === selectedPath.value);
   initialSavedContent.value = file?.content ?? "";
   dirty.value = false;
+});
+watch(confirmationOpen, (isOpen) => {
+  if (!isOpen && pendingCrmWrite.value && !crmWriteBusy.value) cancelCrmWrite();
 });
 
 onMounted(async () => {
@@ -101,7 +122,7 @@ function handleEvent(event: GenerationEvent) {
   }
   if (event.event === "complete") {
     outputPartial = event.data.partial;
-    if (event.data.partial) {
+    if (event.data.partial && !outputErrored) {
       notice.value = "Partial output was saved. Open the latest files and snapshot to review it.";
     }
   }
@@ -109,6 +130,10 @@ function handleEvent(event: GenerationEvent) {
 
 async function sendPrompt(prompt: string) {
   if (generating.value || busy.value) return;
+  if (dirty.value) {
+    streamError.value = "Save the current file before generating changes.";
+    return;
+  }
   streamError.value = "";
   notice.value = "";
   streamText.value = "";
@@ -123,6 +148,7 @@ async function sendPrompt(prompt: string) {
     return;
   }
   busy.value = false;
+  previewBeforeGeneration.value = files.value.map((file) => ({ ...file }));
   generating.value = true;
   selectedPath.value = VIRTUAL_PATH;
   const abortController = new AbortController();
@@ -164,6 +190,12 @@ function cancelGeneration() {
 
 function selectFile(path: string) {
   if (generating.value) return;
+  if (path === selectedPath.value) return;
+  if (dirty.value) {
+    if (!window.confirm("Discard unsaved changes to the current file?")) return;
+    const index = files.value.findIndex((item) => item.path === selectedPath.value);
+    if (index >= 0) files.value[index] = { ...files.value[index], content: initialSavedContent.value };
+  }
   selectedPath.value = path;
   const file = files.value.find((item) => item.path === path);
   initialSavedContent.value = file?.content ?? "";
@@ -195,6 +227,10 @@ async function saveCurrentFile() {
 }
 
 async function createFile(path: string) {
+  if (dirty.value) {
+    streamError.value = "Save the current file before creating another file.";
+    return;
+  }
   const validPath = path.trim().replace(/^\/+/, "");
   if (!validPath || files.value.some((file) => file.path === validPath)) {
     streamError.value = "Choose a new file path.";
@@ -231,7 +267,29 @@ async function loadSnapshots() {
   }
 }
 
+async function openDiff(snapshot: Snapshot) {
+  if (diffLoading.value) return;
+  historyOpen.value = false;
+  await nextTick();
+  diffSnapshot.value = snapshot;
+  diffResult.value = null;
+  diffError.value = "";
+  diffOpen.value = true;
+  diffLoading.value = true;
+  try {
+    diffResult.value = await api.getSnapshotDiff(props.project.id, snapshot.id);
+  } catch (cause) {
+    diffError.value = cause instanceof Error ? cause.message : "Changes could not be loaded.";
+  } finally {
+    diffLoading.value = false;
+  }
+}
+
 async function restore(snapshot: Snapshot) {
+  if (dirty.value) {
+    streamError.value = "Save the current file before restoring a snapshot.";
+    return;
+  }
   const confirmed = window.confirm("Restore version " + snapshot.version + "? Current project files will be replaced.");
   if (!confirmed) return;
   historyLoading.value = true;
@@ -252,15 +310,76 @@ async function restore(snapshot: Snapshot) {
   }
 }
 
-async function previewDataRequest(request: { id: string; action: string; params: Record<string, unknown> }) {
+function goBack() {
+  if (dirty.value && !window.confirm("Discard unsaved changes to the current file?")) return;
+  emit("back");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function pickStringFields(value: unknown, fields: string[]): Record<string, string> | null {
+  if (!isRecord(value)) return null;
+  const picked: Record<string, string> = {};
+  for (const field of fields) {
+    const candidate = value[field];
+    if (typeof candidate === "string" && candidate.trim()) picked[field] = candidate;
+  }
+  return picked;
+}
+
+function cancelCrmWrite() {
+  const pending = pendingCrmWrite.value;
+  if (!pending) return;
+  pendingCrmWrite.value = null;
+  confirmationOpen.value = false;
+  preview.value?.respond(pending.requestId, undefined, "Action cancelled by the user.");
+}
+
+async function confirmCrmWrite() {
+  const pending = pendingCrmWrite.value;
+  if (!pending || crmWriteBusy.value || crmContactLookupBusy.value) return;
+  crmWriteBusy.value = true;
+  streamError.value = "";
+  notice.value = "";
   try {
-    const kind = request.action as "contacts" | "conversations" | "messages" | "calendars" | "appointments";
+    const result = await api.highLevelWrite(props.project.id, pending.input);
+    preview.value?.respond(pending.requestId, result);
+    notice.value = pending.input.action === "sendMessage"
+      ? "Message submitted. Check the conversation for delivery status."
+      : pending.title + " completed.";
+    pendingCrmWrite.value = null;
+    confirmationOpen.value = false;
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "The CRM action could not be completed.";
+    streamError.value = message;
+    preview.value?.respond(pending.requestId, undefined, message);
+    pendingCrmWrite.value = null;
+    confirmationOpen.value = false;
+  } finally {
+    crmWriteBusy.value = false;
+  }
+}
+
+async function previewDataRequest(request: { id: string; action: string; params: Record<string, unknown> }) {
+  if (["createContact", "updateContact", "createAppointment", "sendMessage"].includes(request.action)) {
+    await queueCrmWrite(request);
+    return;
+  }
+  try {
+    const kind = request.action as HighLevelReadKind;
     const result = await api.getHighLevelData(props.project.id, kind, {
       query: typeof request.params.query === "string" ? request.params.query.slice(0, 100) : undefined,
       conversationId:
         typeof request.params.conversationId === "string"
           ? request.params.conversationId.slice(0, 128)
           : undefined,
+      contactId: typeof request.params.contactId === "string" ? request.params.contactId.slice(0, 128) : undefined,
+      calendarId: typeof request.params.calendarId === "string" ? request.params.calendarId.slice(0, 128) : undefined,
+      startDate: typeof request.params.startDate === "number" ? request.params.startDate : undefined,
+      endDate: typeof request.params.endDate === "number" ? request.params.endDate : undefined,
+      timezone: typeof request.params.timezone === "string" ? request.params.timezone.slice(0, 64) : undefined,
     });
     preview.value?.respond(request.id, result);
   } catch (cause) {
@@ -269,6 +388,114 @@ async function previewDataRequest(request: { id: string; action: string; params:
       undefined,
       cause instanceof Error ? cause.message : "CRM data could not be loaded.",
     );
+  }
+}
+
+async function queueCrmWrite(request: { id: string; action: string; params: Record<string, unknown> }) {
+  if (pendingCrmWrite.value || crmContactLookupBusy.value || crmWriteBusy.value) {
+    preview.value?.respond(request.id, undefined, "Finish or cancel the open CRM confirmation first.");
+    return;
+  }
+  const contactFields = [
+    "firstName", "lastName", "name", "email", "phone", "companyName", "address1",
+    "city", "state", "postalCode", "website", "timezone",
+  ];
+  let input: HighLevelWriteInput | null = null;
+  let title = "Review CRM change";
+
+  if (request.action === "createContact") {
+    const contact = pickStringFields(request.params.contact, contactFields);
+    if (contact && (contact.email || contact.phone)) {
+      input = { action: "createContact", contact };
+      title = "Create a contact";
+    }
+  } else if (request.action === "updateContact") {
+    const contactId = request.params.contactId;
+    const changes = pickStringFields(request.params.changes, contactFields);
+    if (typeof contactId === "string" && changes && Object.keys(changes).length) {
+      input = { action: "updateContact", contactId, changes };
+      title = "Update a contact";
+    }
+  } else if (request.action === "createAppointment") {
+    const values = pickStringFields(request.params, ["contactId", "calendarId", "title", "startTime", "endTime"]);
+    if (values?.contactId && values.calendarId && values.title && values.startTime) {
+      input = { action: "createAppointment", contactId: values.contactId, calendarId: values.calendarId,
+        title: values.title, startTime: values.startTime, ...(values.endTime ? { endTime: values.endTime } : {}) };
+      title = "Create an appointment";
+    }
+  } else if (request.action === "sendMessage") {
+    const contactId = request.params.contactId;
+    const type = request.params.type;
+    const message = request.params.message;
+    const subject = request.params.subject;
+    if (
+      typeof contactId === "string" &&
+      (type === "SMS" || type === "Email") &&
+      typeof message === "string" &&
+      message.trim() &&
+      (subject === undefined || typeof subject === "string") &&
+      (type !== "Email" || (typeof subject === "string" && subject.trim()))
+    ) {
+      input = {
+        action: "sendMessage",
+        contactId,
+        type,
+        message,
+        ...(typeof subject === "string" ? { subject } : {}),
+      };
+      title = type === "Email" ? "Send an email" : "Send a text message";
+    }
+  }
+
+  if (!input) {
+    preview.value?.respond(request.id, undefined, "The requested CRM action has invalid fields.");
+    return;
+  }
+  pendingCrmWrite.value = {
+    requestId: request.id,
+    input,
+    title,
+    details: JSON.stringify(input, null, 2),
+  };
+  confirmationOpen.value = true;
+
+  if (input.action !== "createContact") {
+    crmContactLookupBusy.value = true;
+    try {
+      const raw = await api.getHighLevelData(props.project.id, "contact", { contactId: input.contactId });
+      if (pendingCrmWrite.value?.requestId !== request.id) return;
+      const response = isRecord(raw) && isRecord(raw.contact) ? raw.contact : null;
+      if (!response) throw new Error("The contact could not be verified in the connected account.");
+      const recipient = {
+        name: typeof response.name === "string"
+          ? response.name
+          : [response.firstName, response.lastName].filter((part) => typeof part === "string").join(" "),
+        email: typeof response.email === "string" ? response.email : undefined,
+        phone: typeof response.phone === "string" ? response.phone : undefined,
+      };
+      const review = input.action === "updateContact"
+        ? { action: input.action, contact: recipient, changes: input.changes }
+        : input.action === "createAppointment"
+          ? { ...input, contact: recipient }
+          : {
+            action: input.action,
+            recipient,
+            type: input.type,
+            ...(input.subject ? { subject: input.subject } : {}),
+            message: input.message,
+          };
+      pendingCrmWrite.value.details = JSON.stringify(review, null, 2);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "The contact could not be verified.";
+      if (pendingCrmWrite.value?.requestId === request.id) {
+        pendingCrmWrite.value = null;
+        confirmationOpen.value = false;
+        streamError.value = message;
+        preview.value?.respond(request.id, undefined, message);
+      }
+    } finally {
+      crmContactLookupBusy.value = false;
+    }
   }
 }
 
@@ -289,7 +516,7 @@ function onEditorKey(event: KeyboardEvent) {
           variant="ghost"
           size="icon"
           aria-label="Back to projects"
-          @click="emit('back')"
+          @click="goBack"
         >
           <ArrowLeft :size="17" />
         </Button>
@@ -315,6 +542,7 @@ function onEditorKey(event: KeyboardEvent) {
         </Badge>
       </div>
       <div class="flex items-center gap-2">
+        <a href="/help.html" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-accent hover:underline">Help</a>
         <span class="hidden items-center gap-1.5 text-[10px] text-slate-400 md:flex"><ShieldCheck
           :size="13"
           class="text-emerald-600"
@@ -373,6 +601,7 @@ function onEditorKey(event: KeyboardEvent) {
           :generating="generating"
           :stream-text="streamText"
           :disabled="busy"
+          :unsaved-changes="dirty"
           @send="sendPrompt"
           @cancel="cancelGeneration"
           @snapshots="openHistory"
@@ -392,7 +621,7 @@ function onEditorKey(event: KeyboardEvent) {
         />
         <PreviewPanel
           ref="preview"
-          :files="files"
+          :files="generating ? previewBeforeGeneration : files"
           :project-name="project.name"
           :refresh-key="refreshKey"
           @data-request="previewDataRequest"
@@ -455,18 +684,28 @@ function onEditorKey(event: KeyboardEvent) {
                 {{ snapshot.createdAt ? new Date(snapshot.createdAt).toLocaleString() : "Recent" }} · {{ snapshot.fileCount }} files
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              :disabled="historyLoading"
-              @click="restore(snapshot)"
-            >
-              <LoaderCircle
-                v-if="historyLoading"
-                :size="12"
-                class="animate-spin"
-              /> Restore
-            </Button>
+            <div class="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                :disabled="historyLoading || diffLoading"
+                @click="openDiff(snapshot)"
+              >
+                View changes
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                :disabled="historyLoading"
+                @click="restore(snapshot)"
+              >
+                <LoaderCircle
+                  v-if="historyLoading"
+                  :size="12"
+                  class="animate-spin"
+                /> Restore
+              </Button>
+            </div>
           </div>
           <p class="mt-3 line-clamp-3 border-t border-line pt-3 text-[11px] leading-5 text-slate-500">
             {{ snapshot.prompt }}
@@ -474,5 +713,52 @@ function onEditorKey(event: KeyboardEvent) {
         </article>
       </div>
     </Sheet>
+    <SnapshotDiff
+      v-model:open="diffOpen"
+      :snapshot="diffSnapshot"
+      :loading="diffLoading"
+      :result="diffResult"
+      :error="diffError"
+    />
+    <Dialog
+      v-model:open="confirmationOpen"
+      :title="pendingCrmWrite?.title ?? 'Confirm CRM action'"
+      description="Review this operation before it changes the connected account. The preview cannot apply it until you confirm here."
+    >
+      <div class="space-y-4">
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          <template v-if="pendingCrmWrite?.input.action === 'sendMessage'">
+            This message will be sent to the selected contact after confirmation.
+          </template>
+          <template v-else-if="pendingCrmWrite?.input.action === 'createAppointment'">
+            This appointment will be created after confirmation.
+          </template>
+          <template v-else>
+            This contact record will be changed after confirmation.
+          </template>
+        </div>
+        <pre class="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-paper p-3 font-mono text-[11px] leading-5 text-slate-700">{{ pendingCrmWrite?.details }}</pre>
+        <div class="flex justify-end gap-2 pt-1">
+          <Button
+            variant="outline"
+            :disabled="crmWriteBusy"
+            @click="cancelCrmWrite"
+          >
+            Cancel
+          </Button>
+          <Button
+            :disabled="crmWriteBusy || crmContactLookupBusy"
+            @click="confirmCrmWrite"
+          >
+            <LoaderCircle
+              v-if="crmWriteBusy || crmContactLookupBusy"
+              :size="13"
+              class="animate-spin"
+            />
+            {{ crmContactLookupBusy ? 'Verifying contact…' : crmWriteBusy ? 'Working…' : pendingCrmWrite?.input.action === 'sendMessage' ? 'Confirm and send' : 'Confirm change' }}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   </main>
 </template>

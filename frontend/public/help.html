@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Genesis Help</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,sans-serif;color:#203332;background:#f3f7f5;line-height:1.6}body{max-width:820px;margin:0 auto;padding:2rem 1.2rem 4rem}header{border-bottom:1px solid #d8e6e0;padding-bottom:1rem}h1,h2{line-height:1.2}h1{font-size:2rem}h2{font-size:1.2rem;margin-top:2rem}a{color:#086b52}section{background:white;border:1px solid #dce8e2;border-radius:12px;padding:0 1.3rem 1rem;margin-top:1rem}code{background:#eef5f1;padding:.1rem .25rem;border-radius:3px}li{margin:.45rem 0}.note{color:#456057}footer{margin-top:2rem;font-size:.9rem}
+  </style>
+</head>
+<body>
+<header><a href="/">← Genesis</a><h1>Genesis Help</h1><p>Build and try a small app using your connected HighLevel account.</p></header>
+<section><h2>1. Connect your CRM</h2><ol><li>Sign in to Genesis and select <strong>Connect</strong> on the projects page.</li><li>Authorize the Marketplace app and select the HighLevel location you want to use.</li><li>Return to Genesis and confirm that the connection shows as connected.</li></ol><p class="note">The account needs access to the selected location and the requested API permissions.</p></section>
+<section><h2>2. Build and refine an app</h2><ol><li>Create a project and describe what you want in the build conversation. For example: “Build a recent contacts dashboard with search.”</li><li>Select <strong>Generate</strong>. Output appears as it is received; generation can take time. Use <strong>Stop</strong> to cancel.</li><li>Try the app in the live preview. Ask for a change in the conversation to refine it.</li></ol><p class="note">If generation stops or reports invalid files, review the saved files and try a more specific request. Provider limits may also require waiting before trying again.</p></section>
+<section><h2>3. Edit, save and review history</h2><ol><li>Select a file in the explorer and edit it in the code panel. Select <strong>Save</strong> after making changes.</li><li>Open <strong>History</strong> to review snapshots. Select a version’s comparison option to see its changes, or <strong>Restore</strong> to replace the current files with that version.</li></ol><p class="note">Comparisons are available for generation snapshots with a recorded baseline. Save current edits before generating or restoring.</p></section>
+<section><h2>4. Use CRM features in the preview</h2><p>Ask for contacts, conversations, messages, calendars, appointments or availability. Supported changes such as creating or updating a contact and sending a message require confirmation in Genesis. Check the details before confirming.</p><p class="note">A successful send request does not guarantee delivery. Check the message status in HighLevel. Results and available operations depend on the connected account, permissions and generated app.</p></section>
+<section><h2>Troubleshooting</h2><ul><li><strong>CRM data is missing:</strong> check the connected location, permissions and any date or search filters.</li><li><strong>A change is not visible:</strong> reload the data in the generated app and check the record in HighLevel. Some results can take time to update.</li><li><strong>Preview does not work:</strong> inspect the generated files and request a focused correction. The sandbox supports local HTML, CSS and JavaScript and restricts external resources.</li><li><strong>Generation is limited:</strong> wait for the displayed limit window to reset; the AI provider can have separate limits.</li></ul></section>
+<footer>Need technical setup or deployment details? See the project README in the source repository.</footer>
+</body></html>

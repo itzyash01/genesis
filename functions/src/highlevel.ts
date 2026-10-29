@@ -4,6 +4,7 @@ import { db } from "./admin.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
 import { hashToken, projectIdSchema } from "./validation.js";
 import { HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 
 const HL_API = "https://services.leadconnectorhq.com";
 const TOKEN_URL = HL_API + "/oauth/token";
@@ -341,7 +342,7 @@ async function callHighLevel(options: {
   path: string;
   version: string;
   query?: URLSearchParams;
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT";
   body?: Record<string, unknown>;
   clientId: string;
   clientSecret: string;
@@ -350,20 +351,49 @@ async function callHighLevel(options: {
   const token = await getHighLevelAccessToken(options);
   const url = new URL(HL_API + options.path);
   if (options.query) url.search = options.query.toString();
-  const response = await fetch(url, {
-    method: options.method ?? "GET",
-    headers: {
-      Authorization: "Bearer " + token.accessToken,
-      Accept: "application/json",
-      Version: options.version,
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(15_000),
+  const startedAt = Date.now();
+  const resource = ["contacts", "conversations", "calendars"].find((name) => options.path.startsWith("/" + name + "/")) ?? "other";
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: options.method ?? "GET",
+      headers: {
+        Authorization: "Bearer " + token.accessToken,
+        Accept: "application/json",
+        Version: options.version,
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    logger.warn("crm.request_failed", { resource, method: options.method ?? "GET", durationMs: Date.now() - startedAt });
+    throw error;
+  }
+  logger.info("crm.request", {
+    resource, method: options.method ?? "GET", status: response.status, durationMs: Date.now() - startedAt,
   });
   if (!response.ok) {
+    let validationMessage = "";
+    if (response.status === 400 || response.status === 422) {
+      try {
+        const body: unknown = await response.json();
+        if (typeof body === "object" && body !== null && "message" in body) {
+          const raw = (body as { message?: unknown }).message;
+          const message = typeof raw === "string" ? raw : Array.isArray(raw)
+            ? raw.filter((item): item is string => typeof item === "string").join("; ") : "";
+          validationMessage = message
+            .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+            .replace(/\+?\d[\d ()-]{7,}\d/g, "[number]")
+            .replace(/\b[A-Za-z0-9_-]{32,}\b/g, "[redacted]")
+            .replace(/[\r\n\t]+/g, " ")
+            .replace(/[<>]/g, "")
+            .slice(0, 300).trim();
+        }
+      } catch { /* An invalid error payload is handled with a generic message. */ }
+    }
     throw new HighLevelApiError(
-      response.status === 401
+      validationMessage ? "CRM rejected the request: " + validationMessage : response.status === 401
         ? "CRM authorization was rejected. Reconnect your account."
         : response.status === 429
           ? "The CRM request limit was reached. Retry in a moment."
@@ -389,12 +419,31 @@ export async function disconnectHighLevel(uid: string) {
   await integrationRef(uid).delete();
 }
 
+async function verifyCalendarLocation(options: {
+  uid: string; calendarId: string; locationId: string; clientId: string; clientSecret: string; encryptionKey: string;
+}): Promise<void> {
+  const result = await callHighLevel({
+    uid: options.uid, path: "/calendars/", version: "2021-04-15",
+    query: new URLSearchParams({ locationId: options.locationId }),
+    clientId: options.clientId, clientSecret: options.clientSecret, encryptionKey: options.encryptionKey,
+  }) as { calendars?: Array<{ id?: unknown }> };
+  if (!Array.isArray(result.calendars)) throw new HttpsError("unavailable", "The CRM returned an invalid calendar list.");
+  if (!result.calendars.some((calendar) => calendar.id === options.calendarId)) {
+    throw new HttpsError("permission-denied", "The selected calendar is not in this connected account.");
+  }
+}
+
 export async function getHighLevelData(options: {
   uid: string;
   projectId: string;
-  kind: "contacts" | "conversations" | "messages" | "calendars" | "appointments";
+  kind: "contacts" | "contact" | "conversations" | "messages" | "calendars" | "appointments" | "availability";
   query?: string;
+  contactId?: string;
   conversationId?: string;
+  calendarId?: string;
+  startDate?: number;
+  endDate?: number;
+  timezone?: string;
   clientId: string;
   clientSecret: string;
   encryptionKey: string;
@@ -420,14 +469,35 @@ export async function getHighLevelData(options: {
 
   const query = new URLSearchParams();
   query.set("locationId", token.locationId);
+  if (options.kind === "contact") {
+    if (!options.contactId || !/^[A-Za-z0-9_-]{1,128}$/.test(options.contactId)) {
+      throw new HttpsError("invalid-argument", "A valid contact ID is required.");
+    }
+    const result = await callHighLevel({
+      uid: options.uid,
+      path: "/contacts/" + encodeURIComponent(options.contactId),
+      version: "2021-07-28",
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      encryptionKey: options.encryptionKey,
+    }) as { contact?: { locationId?: string } };
+    if (result.contact?.locationId !== token.locationId) {
+      throw new HttpsError("permission-denied", "The selected contact is not in this connected account.");
+    }
+    return result;
+  }
   if (options.kind === "contacts") {
-    query.set("limit", "20");
-    if (options.query?.trim()) query.set("query", options.query.trim().slice(0, 100));
     return callHighLevel({
       uid: options.uid,
-      path: "/contacts/",
+      path: "/contacts/search",
       version: "2021-07-28",
-      query,
+      method: "POST",
+      body: {
+        locationId: token.locationId,
+        page: 1,
+        pageLimit: 20,
+        ...(options.query?.trim() ? { query: options.query.trim().slice(0, 100) } : {}),
+      },
       clientId: options.clientId,
       clientSecret: options.clientSecret,
       encryptionKey: options.encryptionKey,
@@ -448,6 +518,18 @@ export async function getHighLevelData(options: {
   if (options.kind === "messages") {
     if (!options.conversationId || !/^[A-Za-z0-9_-]{1,128}$/.test(options.conversationId)) {
       throw new HttpsError("invalid-argument", "A valid conversation ID is required.");
+    }
+    const conversationResult = await callHighLevel({
+      uid: options.uid,
+      path: "/conversations/" + encodeURIComponent(options.conversationId),
+      version: "2021-04-15",
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      encryptionKey: options.encryptionKey,
+    }) as { locationId?: string; conversation?: { locationId?: string } };
+    const conversationLocation = conversationResult.conversation?.locationId ?? conversationResult.locationId;
+    if (conversationLocation !== token.locationId) {
+      throw new HttpsError("permission-denied", "The selected conversation is not in this connected account.");
     }
     query.delete("locationId");
     query.set("limit", "20");
@@ -473,20 +555,294 @@ export async function getHighLevelData(options: {
     });
   }
 
-  const start = new Date();
-  const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-  query.set("startTime", start.toISOString());
-  query.set("endTime", end.toISOString());
-  query.set("limit", "20");
-  return callHighLevel({
+  if (options.kind === "availability") {
+    if (
+      !options.calendarId ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(options.calendarId) ||
+      !Number.isSafeInteger(options.startDate) ||
+      !Number.isSafeInteger(options.endDate) ||
+      !options.startDate ||
+      !options.endDate ||
+      options.endDate <= options.startDate ||
+      options.endDate - options.startDate > 31 * 24 * 60 * 60 * 1000
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "A calendar ID and a valid date range of 31 days or less are required.",
+      );
+    }
+    await verifyCalendarLocation({
+      uid: options.uid, calendarId: options.calendarId, locationId: token.locationId,
+      clientId: options.clientId, clientSecret: options.clientSecret, encryptionKey: options.encryptionKey,
+    });
+    const availabilityQuery = new URLSearchParams({
+      startDate: String(options.startDate),
+      endDate: String(options.endDate),
+    });
+    if (options.timezone?.trim()) {
+      availabilityQuery.set("timezone", options.timezone.trim().slice(0, 64));
+    }
+    return callHighLevel({
+      uid: options.uid,
+      path: "/calendars/" + encodeURIComponent(options.calendarId) + "/free-slots",
+      version: "2021-04-15",
+      query: availabilityQuery,
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      encryptionKey: options.encryptionKey,
+    });
+  }
+
+  const calendarResponse = await callHighLevel({
     uid: options.uid,
-    path: "/calendars/events",
+    path: "/calendars/",
     version: "2021-04-15",
     query,
     clientId: options.clientId,
     clientSecret: options.clientSecret,
     encryptionKey: options.encryptionKey,
+  }) as { calendars?: Array<{ id?: unknown }> };
+  if (!Array.isArray(calendarResponse.calendars)) {
+    throw new HttpsError("unavailable", "The CRM returned an invalid calendar list.");
+  }
+  const calendarIds = calendarResponse.calendars
+    .map((calendar) => calendar.id)
+    .filter((id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(id));
+  const requestedIds = options.calendarId
+    ? calendarIds.filter((id) => id === options.calendarId)
+    : calendarIds.slice(0, 20);
+  if (options.calendarId && requestedIds.length === 0) {
+    throw new HttpsError("permission-denied", "The selected calendar is not in this connected account.");
+  }
+  const now = Date.now();
+  const startTime = options.startDate ?? now;
+  const endTime = options.endDate ?? (startTime + 30 * 24 * 60 * 60 * 1000);
+  if (!Number.isSafeInteger(startTime) || !Number.isSafeInteger(endTime) ||
+    endTime <= startTime || endTime - startTime > 31 * 24 * 60 * 60 * 1000) {
+    throw new HttpsError("invalid-argument", "A valid appointment date range of 31 days or less is required.");
+  }
+  const results = await Promise.all(requestedIds.map(async (calendarId) => {
+    const eventQuery = new URLSearchParams({
+      locationId: token.locationId,
+      calendarId,
+      startTime: String(startTime),
+      endTime: String(endTime),
+    });
+    return callHighLevel({
+      uid: options.uid,
+      path: "/calendars/events",
+      version: "2021-04-15",
+      query: eventQuery,
+      clientId: options.clientId,
+      clientSecret: options.clientSecret,
+      encryptionKey: options.encryptionKey,
+    }) as Promise<{ events?: unknown[] }>;
+  }));
+  if (results.some((result) => !Array.isArray(result.events))) {
+    throw new HttpsError("unavailable", "The CRM returned an invalid appointment list.");
+  }
+  return {
+    events: results.flatMap((result) => result.events ?? []),
+    truncated: !options.calendarId && calendarIds.length > requestedIds.length,
+  };
+}
+
+export type HighLevelWriteInput =
+  | {
+      action: "createContact";
+      contact: Record<string, unknown>;
+    }
+  | {
+      action: "updateContact";
+      contactId: string;
+      changes: Record<string, unknown>;
+    }
+  | {
+      action: "createAppointment";
+      contactId: string;
+      calendarId: string;
+      title: string;
+      startTime: string;
+      endTime?: string;
+    }
+  | {
+      action: "sendMessage";
+      contactId: string;
+      type: "SMS" | "Email";
+      message: string;
+      subject?: string;
+    };
+
+async function verifyContactLocation(options: {
+  uid: string;
+  contactId: string;
+  locationId: string;
+  clientId: string;
+  clientSecret: string;
+  encryptionKey: string;
+}): Promise<void> {
+  const result = await callHighLevel({
+    uid: options.uid,
+    path: "/contacts/" + encodeURIComponent(options.contactId),
+    version: "2021-07-28",
+    clientId: options.clientId,
+    clientSecret: options.clientSecret,
+    encryptionKey: options.encryptionKey,
+  }) as { contact?: { locationId?: string } };
+  if (result.contact?.locationId !== options.locationId) {
+    throw new HttpsError("permission-denied", "The selected contact is not in this connected account.");
+  }
+}
+
+async function recordHighLevelWrite(options: {
+  uid: string;
+  projectId: string;
+  action: HighLevelWriteInput["action"];
+  outcome: "succeeded" | "failed";
+  resourceId?: string;
+}): Promise<void> {
+  // Keep audit metadata free of contact details and message contents.
+  const retentionMs = 90 * 24 * 60 * 60 * 1000;
+  await db
+    .collection("users/" + options.uid + "/projects/" + options.projectId + "/crmActionLogs")
+    .add({
+      action: options.action,
+      outcome: options.outcome,
+      ...(options.resourceId ? { resourceId: options.resourceId } : {}),
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + retentionMs),
+    });
+}
+
+export async function executeHighLevelWrite(options: {
+  uid: string;
+  projectId: string;
+  input: HighLevelWriteInput;
+  clientId: string;
+  clientSecret: string;
+  encryptionKey: string;
+}): Promise<unknown> {
+  const projectId = projectIdSchema.parse(options.projectId);
+  const projectRef = db.doc("users/" + options.uid + "/projects/" + projectId);
+  const project = await projectRef.get();
+  if (!project.exists || project.data()?.deletedAt) {
+    throw new HttpsError("not-found", "Project not found.");
+  }
+  const token = await getHighLevelAccessToken({
+    uid: options.uid,
+    clientId: options.clientId,
+    clientSecret: options.clientSecret,
+    encryptionKey: options.encryptionKey,
   });
+  if (project.data()?.highLevelLocationId !== token.locationId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This project is linked to another business account. Update the project connection.",
+    );
+  }
+
+  try {
+    let result: unknown;
+    if (options.input.action === "createContact") {
+      result = await callHighLevel({
+        uid: options.uid,
+        path: "/contacts/",
+        version: "2021-07-28",
+        method: "POST",
+        body: { ...options.input.contact, locationId: token.locationId },
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        encryptionKey: options.encryptionKey,
+      });
+    } else if (options.input.action === "updateContact") {
+      await verifyContactLocation({
+        uid: options.uid,
+        contactId: options.input.contactId,
+        locationId: token.locationId,
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        encryptionKey: options.encryptionKey,
+      });
+      result = await callHighLevel({
+        uid: options.uid,
+        path: "/contacts/" + encodeURIComponent(options.input.contactId),
+        version: "2021-07-28",
+        method: "PUT",
+        body: options.input.changes,
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        encryptionKey: options.encryptionKey,
+      });
+    } else if (options.input.action === "createAppointment") {
+      await verifyContactLocation({
+        uid: options.uid, contactId: options.input.contactId, locationId: token.locationId,
+        clientId: options.clientId, clientSecret: options.clientSecret, encryptionKey: options.encryptionKey,
+      });
+      await verifyCalendarLocation({
+        uid: options.uid, calendarId: options.input.calendarId, locationId: token.locationId,
+        clientId: options.clientId, clientSecret: options.clientSecret, encryptionKey: options.encryptionKey,
+      });
+      result = await callHighLevel({
+        uid: options.uid, path: "/calendars/events/appointments", version: "2021-04-15", method: "POST",
+        body: { calendarId: options.input.calendarId, contactId: options.input.contactId,
+          locationId: token.locationId, title: options.input.title, startTime: options.input.startTime,
+          ...(options.input.endTime ? { endTime: options.input.endTime } : {}) },
+        clientId: options.clientId, clientSecret: options.clientSecret, encryptionKey: options.encryptionKey,
+      });
+    } else {
+      await verifyContactLocation({
+        uid: options.uid,
+        contactId: options.input.contactId,
+        locationId: token.locationId,
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        encryptionKey: options.encryptionKey,
+      });
+      result = await callHighLevel({
+        uid: options.uid,
+        path: "/conversations/messages",
+        version: "2021-04-15",
+        method: "POST",
+        body: {
+          type: options.input.type,
+          contactId: options.input.contactId,
+          message: options.input.message,
+          ...(options.input.type === "Email" ? {
+            html: options.input.message
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/\r?\n/g, "<br>"),
+          } : {}),
+          ...(options.input.subject ? { subject: options.input.subject } : {}),
+          status: "pending",
+        },
+        clientId: options.clientId,
+        clientSecret: options.clientSecret,
+        encryptionKey: options.encryptionKey,
+      });
+    }
+    const candidateResourceId = options.input.action === "createContact"
+      ? (result as { contact?: { id?: unknown } } | null)?.contact?.id
+      : options.input.contactId;
+    await recordHighLevelWrite({
+      uid: options.uid,
+      projectId,
+      action: options.input.action,
+      outcome: "succeeded",
+      resourceId: typeof candidateResourceId === "string" ? candidateResourceId : undefined,
+    }).catch(() => undefined);
+    return result;
+  } catch (error) {
+    await recordHighLevelWrite({
+      uid: options.uid,
+      projectId,
+      action: options.input.action,
+      outcome: "failed",
+      resourceId: options.input.action === "createContact" ? undefined : options.input.contactId,
+    }).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function verifyProjectLocation(

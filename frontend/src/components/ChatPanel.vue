@@ -10,6 +10,7 @@ const props = defineProps<{
   generating: boolean;
   streamText: string;
   disabled?: boolean;
+  unsavedChanges?: boolean;
 }>();
 const emit = defineEmits<{
   send: [prompt: string];
@@ -26,7 +27,7 @@ const examples = [
 
 function submit() {
   const value = prompt.value.trim();
-  if (!value || props.generating || props.disabled) return;
+  if (!value || props.generating || props.disabled || props.unsavedChanges) return;
   emit("send", value);
   prompt.value = "";
 }
@@ -125,8 +126,8 @@ watch(
           <p class="font-medium text-ink">
             Generating your app…
           </p>
-          <p class="mt-1 line-clamp-4 whitespace-pre-wrap font-mono text-[10px] text-slate-400">
-            {{ streamText || "Planning files and connecting your project context." }}
+          <p class="mt-1 max-h-40 overflow-hidden whitespace-pre-wrap break-all font-mono text-[10px] text-slate-400">
+            {{ streamText ? streamText.slice(-1200) : "Planning files and connecting your project context." }}
           </p>
         </div>
       </div>
@@ -145,7 +146,7 @@ watch(
       />
       <div class="mt-2 flex items-center justify-between">
         <p class="text-[10px] text-slate-400">
-          Enter to send · Shift + Enter for a new line
+          {{ unsavedChanges ? "Save the current file before generating." : "Enter to send · Shift + Enter for a new line" }}
         </p>
         <Button
           v-if="generating"
@@ -160,8 +161,9 @@ watch(
         </Button>
         <Button
           v-else
+          type="submit"
           size="sm"
-          :disabled="!prompt.trim() || disabled"
+          :disabled="!prompt.trim() || disabled || unsavedChanges"
         >
           <ArrowUp :size="14" /> Generate
         </Button>

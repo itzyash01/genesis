@@ -16,12 +16,16 @@ export async function pruneOldSnapshots(projectRef: DocumentReference): Promise<
     if (snapshots.size <= SNAPSHOT_RETENTION_LIMIT) return;
 
     for (const snapshot of snapshots.docs.slice(SNAPSHOT_RETENTION_LIMIT)) {
-      const files = await snapshot.ref.collection("files").limit(SNAPSHOT_FILE_LIMIT + 1).get();
-      if (files.size > SNAPSHOT_FILE_LIMIT) {
+      const [files, beforeFiles] = await Promise.all([
+        snapshot.ref.collection("files").limit(SNAPSHOT_FILE_LIMIT + 1).get(),
+        snapshot.ref.collection("beforeFiles").limit(SNAPSHOT_FILE_LIMIT + 1).get(),
+      ]);
+      if (files.size > SNAPSHOT_FILE_LIMIT || beforeFiles.size > SNAPSHOT_FILE_LIMIT) {
         throw new Error("Snapshot exceeds the configured retention delete limit.");
       }
       const batch = db.batch();
       files.docs.forEach((file) => batch.delete(file.ref));
+      beforeFiles.docs.forEach((file) => batch.delete(file.ref));
       batch.delete(snapshot.ref);
       await batch.commit();
     }

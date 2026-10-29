@@ -16,7 +16,11 @@ const requestTimes: number[] = [];
 const srcdoc = computed(() => {
   const entry = props.files.find((file) => file.path === "index.html");
   if (!entry) return "";
-  const parsed = new DOMParser().parseFromString(entry.content, "text/html");
+  // Accept older generated files whose HTML attribute quotes were double-escaped.
+  const html = entry.content.replace(/<[a-z][^<>]*>/gi, (tag) =>
+    tag.replace(/(=\s*)\\"([^"<>]*?)\\"/g, '$1"$2"'),
+  );
+  const parsed = new DOMParser().parseFromString(html, "text/html");
   parsed.querySelectorAll("meta[http-equiv='Content-Security-Policy']").forEach((element) => element.remove());
   parsed.querySelectorAll("meta[http-equiv]").forEach((element) => {
     if (element.getAttribute("http-equiv")?.toLowerCase() === "refresh") element.remove();
@@ -68,16 +72,22 @@ const srcdoc = computed(() => {
     "});",
     "function call(action,params){return new Promise(function(resolve,reject){",
     "var id=Math.random().toString(36).slice(2)+Date.now().toString(36);",
-    "var timer=setTimeout(function(){pending.delete(id);reject(new Error('Request timed out'));},20000);",
+    "var timer=setTimeout(function(){pending.delete(id);reject(new Error('Request timed out'));},300000);",
     "pending.set(id,{resolve:function(value){clearTimeout(timer);resolve(value);},reject:function(error){clearTimeout(timer);reject(error);}});",
     "parent.postMessage({source:'genesis-preview',id:id,action:action,params:params||{}},'*');",
     "});}",
     "window.genesis={crm:{",
     "contacts:function(options){return call('contacts',options);},",
+    "contact:function(contactId){return call('contact',{contactId:contactId});},",
     "conversations:function(options){return call('conversations',options);},",
     "messages:function(conversationId){return call('messages',{conversationId:conversationId});},",
     "calendars:function(options){return call('calendars',options);},",
-    "appointments:function(options){return call('appointments',options);}",
+    "appointments:function(options){return call('appointments',options);},",
+    "availability:function(calendarId,options){return call('availability',Object.assign({},options||{},{calendarId:calendarId}));},",
+    "createContact:function(contact){return call('createContact',{contact:contact});},",
+    "updateContact:function(contactId,changes){return call('updateContact',{contactId:contactId,changes:changes});},",
+    "createAppointment:function(appointment){return call('createAppointment',appointment);},",
+    "sendMessage:function(message){return call('sendMessage',message);}",
     "}};",
     "})();",
   ].join("");
@@ -108,7 +118,10 @@ function onWindowMessage(event: MessageEvent) {
     action?: unknown;
     params?: unknown;
   };
-  const allowedActions = ["contacts", "conversations", "messages", "calendars", "appointments"];
+  const allowedActions = [
+    "contacts", "contact", "conversations", "messages", "calendars", "appointments", "availability",
+    "createContact", "updateContact", "createAppointment", "sendMessage",
+  ];
   if (
     data?.source !== "genesis-preview" ||
     typeof data.id !== "string" ||
@@ -165,7 +178,7 @@ defineExpose({ respond });
           Live preview
         </h2>
         <Badge tone="green">
-          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Sandbox
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Isolated
         </Badge>
       </div>
       <div class="flex items-center gap-1">
@@ -234,7 +247,7 @@ defineExpose({ respond });
           :key="refreshKey"
           :srcdoc="srcdoc"
           title="Generated app preview"
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-forms"
           referrerpolicy="no-referrer"
           class="min-h-[390px] w-full flex-1 border-0 bg-white"
         />

@@ -58,6 +58,7 @@ function submitProject() {
           genesis <span class="ml-1 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">studio</span>
         </a>
         <div class="flex items-center gap-3">
+          <a href="/help.html" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-accent hover:underline">Help</a>
           <div class="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
             <CircleUserRound :size="16" /> {{ userEmail }}
           </div>
